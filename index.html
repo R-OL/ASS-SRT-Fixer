@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v8.1 Pro</title>
+<title>ASS & SRT Fixer v8.3 Pro</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -36,7 +36,6 @@
     margin: 0 auto;
   }
 
-  /* Экран блокировки по PIN-коду */
   .auth-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -264,7 +263,6 @@
   .log-warn { color: var(--accent-warning); }
   .log-err { color: var(--accent-danger); }
 
-  /* МОДАЛЬНОЕ ОКНО */
   .modal-overlay {
     display: none;
     position: fixed;
@@ -339,12 +337,12 @@
 </head>
 <body>
 
-<!-- ЭКРАН ВХОДА ПО PIN-КОДУ -->
+<!-- ЭКРАН ВХОДА ПО PIN-КОДУ 696369 -->
 <div class="auth-overlay" id="authLockScreen">
   <div class="auth-card">
     <div style="font-size: 2.8rem; filter: drop-shadow(0 4px 10px rgba(56,189,248,0.3));">🔐</div>
     <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">Вход в ASS & SRT Fixer</h2>
-    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Введите ваш PIN-код доступа для разблокировки приложения на планшете:</p>
+    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Введите ваш PIN-код доступа для разблокировки:</p>
     <div>
       <input type="password" id="authPinInput" maxlength="10" placeholder="••••••" style="text-align: center; font-size: 1.4rem; letter-spacing: 5px; font-weight: bold; padding: 10px;" onkeydown="if(event.key==='Enter')checkAuthPin()">
     </div>
@@ -353,10 +351,9 @@
   </div>
 </div>
 
-<!-- ОСНОВНОЙ ИНТЕРФЕЙС ПРИЛОЖЕНИЯ -->
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v8.1 Pro</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v8.3 Pro</span></h1>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
       <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
@@ -396,7 +393,6 @@
         <input type="file" id="gAudioFile" accept="audio/*" multiple>
       </div>
 
-      <!-- Выбор целевой папки для авто-сохранения -->
       <div class="row">
         <div style="flex:2;">
           <label>Папка авто-сохранения:</label>
@@ -407,7 +403,7 @@
         </div>
         <div style="flex:1;">
           <label for="gFormatSelect">Основной формат:</label>
-          <select id="gFormatSelect">
+          <select id="gFormatSelect" onchange="handleFormatChange()">
             <option value="srt" selected>.srt (0% нагрева)</option>
             <option value="ass">.ass</option>
             <option value="both">Оба (.srt + .ass)</option>
@@ -415,14 +411,12 @@
         </div>
       </div>
 
-      <!-- Интерактивная панель очереди файлов -->
       <div id="batchQueueCard" style="display: none;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
           <label style="margin:0;">Очередь серий (<span id="queueTotalCount">0</span> шт.):</label>
           <span style="font-size:0.75rem; color:var(--accent-primary);">Шаблон: {n} = номер серии</span>
         </div>
         
-        <!-- Умный нумератор серии по порядку -->
         <div class="row" style="margin-bottom: 6px; gap: 8px;">
           <div style="flex: 2;">
             <input type="text" id="gNamingPattern" placeholder="Название (например: Игра престолов)">
@@ -438,7 +432,6 @@
         <div class="queue-container" id="queueList"></div>
       </div>
 
-      <!-- Поле имени для одиночного файла генерации -->
       <div id="singleNameBox">
         <label for="gSingleOutName">Имя файла для сохранения на устройстве:</label>
         <div class="row">
@@ -462,8 +455,8 @@
       </div>
       <div class="row">
         <div>
-          <label for="gChunk">Кусок, мин (1–20 мин, реком: 5):</label>
-          <input type="number" id="gChunk" min="1" max="20" step="0.5" value="5">
+          <label for="gChunk">Кусок, мин (1–20 мин, реком: 7):</label>
+          <input type="number" id="gChunk" min="1" max="20" step="0.5" value="7">
         </div>
         <div>
           <label for="gPar">Потоков (1–2, оптим: 2 для скорости):</label>
@@ -500,25 +493,25 @@
   </div>
 
   <div class="grid-layout">
-    <!-- БЛОК 3: Починка субтитров -->
+    <!-- БЛОК 3: Настройки постобработки и ручной фиксер -->
     <div class="card">
       <h2>
-        3 · Починить субтитры (.ass / .srt)
+        3 · Настройки обработки субтитров (для Gemini и ручной починки)
         <button class="btn btn-mini" onclick="openStyleModal()" type="button">🎨 Стили для .ass</button>
       </h2>
       <div>
-        <label for="fxFile">Файл .ass / .srt / .txt:</label>
+        <label for="fxFile">Файл .ass / .srt / .txt (для ручного исправления):</label>
         <input type="file" id="fxFile" accept=".ass,.srt,.txt,text/plain">
       </div>
       <div>
-        <label for="fxPaste">Вставка текста:</label>
+        <label for="fxPaste">Вставка текста (если нужно исправить вручную):</label>
         <textarea id="fxPaste" placeholder="Вставьте сырые строки субтитров..."></textarea>
         <button class="btn btn-mini" id="btnClearPaste" type="button" style="margin-top: 4px;">✖ Очистить поле</button>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:12px; margin: 6px 0;">
-        <label class="chk" style="color:var(--accent-success); font-weight:bold;">
-          <input type="checkbox" id="fxApplyCustomStyles" checked> 
-          Применить стили к .ass
+        <label class="chk" id="lblApplyCustomStyles" style="color:var(--text-muted);">
+          <input type="checkbox" id="fxApplyCustomStyles"> 
+          Применить стили (только для .ass)
         </label>
         <label class="chk"><input type="checkbox" id="fxSmart" checked> Умное время</label>
         <label class="chk"><input type="checkbox" id="fxSort" checked> Сортировка</label>
@@ -529,16 +522,15 @@
       <div class="row">
         <div class="narrow">
           <label for="fxMax">Макс. сек:</label>
-          <input type="number" id="fxMax" min="1" max="30" value="5">
+          <input type="number" id="fxMax" min="1" max="30" value="10">
         </div>
-        <button class="btn btn-pri" id="btnRunFix" type="button">Починить</button>
+        <button class="btn btn-pri" id="btnRunFix" type="button">Починить вручную</button>
       </div>
       <div>
-        <label>Результат фикса:</label>
+        <label>Результат ручного фикса:</label>
         <div class="out" id="fxOut"><div style="color:var(--text-muted);">(пусто)</div></div>
       </div>
 
-      <!-- Поле имени файла для фиксера -->
       <div>
         <label for="fxOutName">Имя файла для сохранения на устройстве:</label>
         <div class="row">
@@ -546,9 +538,8 @@
         </div>
       </div>
 
-      <!-- Кнопки скачивания SRT и ASS (с очищенным названием) -->
       <div class="row">
-        <button class="btn btn-success" id="btnDlFixedSrt" type="button" disabled title="Стример сверху, Аниме снизу. 0% нагрузки на процессор планшета!">⬇ Скачать .srt</button>
+        <button class="btn btn-success" id="btnDlFixedSrt" type="button" disabled title="Стример сверху, Аниме снизу. 0% нагрузки!">⬇ Скачать .srt</button>
         <button class="btn btn-pri" id="btnDlFixed" type="button" disabled>⬇ Скачать .ass</button>
         <button class="btn" id="btnCopyFixed" type="button" disabled>⧉ Копировать</button>
       </div>
@@ -672,19 +663,19 @@
 'use strict';
 
 /* =========================================================================
-   АВТОРИЗАЦИЯ ПО ПАРОЛЮ 696369 (ЗАПОМИНАЕТСЯ НАВСЕГДА)
+   АВТОРИЗАЦИЯ ПО ПАРОЛЮ 696369
    ========================================================================= */
 
-const AUTH_TOKEN = "Njk2MzY5"; // Защищенный base64 от '696369'
+const AUTH_TOKEN = "Njk2MzY5";
 
 function checkAuthPin() {
   const input = document.getElementById('authPinInput');
   const val = input ? input.value.trim() : '';
   
   if (btoa(val) === AUTH_TOKEN) {
-    localStorage.setItem('af81_auth_unlocked', 'true');
+    localStorage.setItem('af83_auth_unlocked', 'true');
     unlockApp();
-    glog('Авторизация успешна. Устройство запомнено навсегда.');
+    glog('Авторизация успешна. Устройство запомнено.');
   } else {
     const err = document.getElementById('authErrorMsg');
     if (err) err.style.display = 'block';
@@ -702,8 +693,23 @@ function unlockApp() {
   if (main) main.style.display = 'block';
 }
 
+function handleFormatChange() {
+  const fmt = document.getElementById('gFormatSelect')?.value || 'srt';
+  const chk = document.getElementById('fxApplyCustomStyles');
+  const lbl = document.getElementById('lblApplyCustomStyles');
+  if (chk) {
+    if (fmt === 'srt') {
+      chk.checked = false;
+      if (lbl) lbl.style.color = 'var(--text-muted)';
+    } else {
+      chk.checked = true;
+      if (lbl) lbl.style.color = 'var(--accent-success)';
+    }
+  }
+}
+
 /* =========================================================================
-   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И СБОРКА ОЧИСТКИ ПАМЯТИ
+   ЯДРО И СИСТЕМНЫЙ ПРОМПТ v8.3 PRO
    ========================================================================= */
 
 const RES_W = 1920;
@@ -858,24 +864,35 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
-const SYSTEM_PROMPT = `Ты — элитный синхронный переводчик и субтитровщик видео-реакций.
-Твоя цель: Сформировать субтитры ASS с абсолютной точностью попадания во время звучания голоса.
+const SYSTEM_PROMPT = `Ты — элитный синхронный переводчик и укладчик субтитров к видео-реакциям.
+Твоя цель: Сформировать ПОЛНЫЕ, ДОСЛОВНЫЕ субтитры ASS с абсолютной точностью попадания в звук голоса.
 
-ДВЕ АВТОНОМНЫЕ ДОРОЖКИ РЕЧИ:
+ДВА ИСТОЧНИКА РЕЧИ:
 1. Английская речь стримера (микрофон) -> стиль "Streamer".
-2. Японская речь видео (аниме/фильм) -> стиль "Anime" (имена строго по Поливанову).
+2. Японская речь видео (аниме/сериал) -> стиль "Anime" (имена строго по Поливанову).
 
-ГЛАВНОЕ ПРАВИЛО СИНХРОНИЗАЦИИ (БОРЬБА С ОПЕРЕЖЕНИЕМ И ОПОЗДАНИЕМ):
-1. ЧИСТЫЙ АКУСТИЧЕСКИЙ ТАЙМИНГ: Таймкод строки ставится ИСКЛЮЧИТЕЛЬНО по физическому звуку голоса в аудио, а НЕ по смыслу происходящего на экране!
-   - Стример часто реагирует на шутку с задержкой в 1–3 секунды. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО сдвигать тайминг стримера назад к моменту сцены! Субтитр стримера обязан появляться ровно тогда, когда он начинает говорить в микрофон.
-   - Если стример говорит ПОВЕРХ персонажа аниме (одновременно) — создавай ДВЕ ПАРАЛЛЕЛЬНЫЕ СТРОКИ (одна Anime, вторая Streamer) с ПЕРЕКРЫВАЮЩИМИСЯ таймкодами! Запрещено выстраивать их друг за другом в очередь!
+ГЛАВНЫЕ ПРАВИЛА (СТРОЖАЙШЕ):
+1. 100% ДОСЛОВНОСТЬ И ПОЛНОТА РЕЧИ:
+   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО сокращать, обобщать, пересказывать своими словами или выбрасывать фразы!
+   - Переводи абсолютно все высказывания, междометия, шутки, детали и мысли.
+   - Если стример или персонаж говорит много и быстро — создавай последовательные строки Dialogue, но не вырезай ни единого слова!
 
-СТАНДАРТЫ ОФОРМЛЕНИЯ:
-2. ОДНА МЫСЛЬ = ОДНА СТРОКА: В каждой строке Dialogue должно быть МАКСИМУМ ОДНО короткое предложение. Как только мысль завершилась (точка, вопрос, восклицание) — сразу закрывай строку.
-3. ОГРАНИЧЕНИЕ ДЛИТЕЛЬНОСТИ: Длительность одной строки — строго от 1.0 до 4.5 секунд. Запрещено делать строки длиннее 5 секунд. Длинные монологи дроби на фазы речи по 2–3 секунды.
-4. ТИПОГРАФИКА: После запятых, точек, двоеточий ОБЯЗАТЕЛЕН пробел. Слипания "слово,слово" запрещены.
-5. ФОРМАТ: Выводи ТОЛЬКО строки ASS без лишнего текста:
-Dialogue: 0,Start,End,Style,,0,0,0,,Перевод на русский язык`;
+2. ЖИВЫЕ ПАУЗЫ И БОРЬБА СО СПЕШКОЙ ТАЙМИНГА:
+   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО склеивать реплики через паузы тишины!
+   - Если говорящий замолчал на 1, 2 или 5 секунд — время Start следующей строки обязано начинаться РОВНО тогда, когда голос СНОВА начал звучать в аудио, а НЕ сразу после предыдущей фразы! Субтитры не должны съедать тишину и спешить вперед.
+   - Длительность фразы (End) закрывается ровно на последнем произнесенном слоге.
+
+3. ОПЕНИНГИ И ПЕСНИ:
+   - Когда играет песня опенинга/эндинга, а стример молчит — не переводи песню.
+   - НО когда после песни возобновляется речь персонажей — таймкод этой первой речи должен учитывать прошедшие 1.5 минуты музыки и начинаться на РЕАЛЬНОЙ минуте аудио (например, 03:15, а не 01:45)!
+
+4. ПАРАЛЛЕЛЬНАЯ РЕЧЬ:
+   - Если стример комментирует поверх аниме одновременно — выдавай две отдельные строки с перекрывающимся таймингом.
+
+5. ОФОРМЛЕНИЕ И ПУНКТУАЦИЯ:
+   - Одно законченное предложение на строку Dialogue.
+   - Обязательный пробел после каждой запятой, точки, двоеточия (не "слово,слово", а "слово, слово").
+   - Формат вывода СТРОГО: Dialogue: 0,Start,End,Style,,0,0,0,,Русский перевод`;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -1096,7 +1113,7 @@ function joinBrokenLines(text) {
 }
 
 function shiftLines(lines, off, chunkDur) {
-  const maxChunkPlaus = (chunkDur || 300) + 45;
+  const maxChunkPlaus = (chunkDur || 420) + 45;
   const parsed = [];
 
   for (let i = 0; i < (lines || []).length; i++) {
@@ -1128,17 +1145,8 @@ function shiftLines(lines, off, chunkDur) {
       }
 
       if (e == null || e <= s) {
-        if (i + 1 < track.length) {
-          const nextT = tparse(track[i + 1].startStr, maxChunkPlaus);
-          if (nextT && nextT.v > s && nextT.v - s <= 5.0) {
-            e = nextT.v - 0.05;
-          }
-        }
-      }
-
-      if (e == null || e <= s) {
         const words = cur.text.split(/\s+/).length;
-        e = s + Math.max(1.5, Math.min(4.5, words * 0.32 + 0.9));
+        e = s + Math.max(1.4, Math.min(8.0, words * 0.32 + 0.9));
       }
 
       out.push('Dialogue: 0,' + fmtT(s + off) + ',' + fmtT(e + off) + ',' + cur.style + ',' + cur.name + ',0,0,0,,' + cur.text);
@@ -1157,14 +1165,14 @@ function cntLine(c) {
 }
 
 function fixAss(text, opts) {
-  const o = Object.assign({ smart: true, sort: true, trim: true, dedup: true, maxDur: 5, splitSentences: true, applyCustomStyles: true }, opts || {});
+  const o = Object.assign({ smart: true, sort: true, trim: true, dedup: true, maxDur: 10, splitSentences: true, applyCustomStyles: false }, opts || {});
   
   let norm = String(text || '').replace(/\r\n?/g, '\n');
   if (!norm.includes('Dialogue:') && norm.includes('-->')) {
     norm = srtToAss(norm);
   }
 
-  const maxDur = (Number(o.maxDur) > 0) ? Number(o.maxDur) : 5;
+  const maxDur = (Number(o.maxDur) > 0) ? Number(o.maxDur) : 10;
   const cnt = { shift: 0, dedup: 0, lifted: 0, endcut: 0, approx: 0, broken: 0 };
   const src = norm.split('\n');
   
@@ -1176,11 +1184,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('Починено ASS Fixer v8.1 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
+    return { text: assHeader('Починено ASS Fixer v8.3 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('Починено ASS Fixer v8.1 Pro').replace(/\n+$/, '')
+    ? assHeader('Починено ASS Fixer v8.3 Pro').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1230,17 +1238,17 @@ function fixAss(text, opts) {
 
     const targetTrack = tracks[p.style] || tracks.Anime;
 
-    if (o.splitSentences) {
+    if (o.splitSentences && (e - s > 4.5)) {
       const sentences = p.text.split(/(?<=[.!?…])\s*(?=[А-ЯA-Z0-9«"A-Z])/).map(t => t.trim()).filter(Boolean);
       if (sentences.length > 1) {
         const totalChars = sentences.reduce((sum, cur) => sum + cur.length, 0);
         let curS = s;
-        const totalDuration = Math.max(sentences.length * 1.5, e - s);
+        const totalDuration = e - s;
         
         for (let sIdx = 0; sIdx < sentences.length; sIdx++) {
           const partRatio = sentences[sIdx].length / Math.max(1, totalChars);
           let curE = curS + totalDuration * partRatio;
-          if (sIdx === sentences.length - 1) curE = Math.max(curE, e);
+          if (sIdx === sentences.length - 1) curE = e;
           
           targetTrack.push({
             p: Object.assign({}, p, { text: sentences[sIdx] }),
@@ -1249,7 +1257,7 @@ function fixAss(text, opts) {
             approx: !!t1.approx,
             dead: false
           });
-          curS = curE + 0.05;
+          curS = curE + 0.1;
         }
         continue;
       }
@@ -1269,11 +1277,7 @@ function fixAss(text, opts) {
       const nx = list[i + 1];
 
       if (cur.e - cur.s > maxDur) {
-        if (nx && nx.s > cur.s && nx.s - cur.s <= maxDur) {
-          cur.e = nx.s - 0.05;
-        } else {
-          cur.e = cur.s + maxDur;
-        }
+        cur.e = cur.s + maxDur;
         cnt.endcut++;
       }
 
@@ -1332,7 +1336,7 @@ function fixAss(text, opts) {
 
 function loadSavedStyles() {
   try {
-    const saved = localStorage.getItem('af81_user_styles');
+    const saved = localStorage.getItem('af83_user_styles');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.streamer && parsed.anime) {
@@ -1359,7 +1363,7 @@ function saveUserStyles() {
   };
 
   try {
-    localStorage.setItem('af81_user_styles', JSON.stringify(UserStyles));
+    localStorage.setItem('af83_user_styles', JSON.stringify(UserStyles));
   } catch (e) {}
 
   closeStyleModal();
@@ -1542,7 +1546,7 @@ function cleanupStorageQuota() {
     const oldKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('af') && !k.startsWith('af81')) {
+      if (k && k.startsWith('af') && !k.startsWith('af83')) {
         oldKeys.push(k);
       }
     }
@@ -1552,13 +1556,13 @@ function cleanupStorageQuota() {
 
 function saveKeys() {
   try {
-    localStorage.setItem('af81_keys', JSON.stringify(S.keys));
-    localStorage.setItem('af81_stats', JSON.stringify(S.stats));
+    localStorage.setItem('af83_keys', JSON.stringify(S.keys));
+    localStorage.setItem('af83_stats', JSON.stringify(S.stats));
   } catch (e) {
     cleanupStorageQuota();
     try {
-      localStorage.setItem('af81_keys', JSON.stringify(S.keys));
-      localStorage.setItem('af81_stats', JSON.stringify(S.stats));
+      localStorage.setItem('af83_keys', JSON.stringify(S.keys));
+      localStorage.setItem('af83_stats', JSON.stringify(S.stats));
     } catch (e2) {}
   }
   renderKeys();
@@ -1745,7 +1749,7 @@ async function fetchAvailableModels() {
 }
 
 function planChunksBySilence(f32, sr, minMinutes) {
-  const chunkSec = Math.max(60, Math.min(1200, (Number(minMinutes) || 5) * 60));
+  const chunkSec = Math.max(60, Math.min(1200, (Number(minMinutes) || 7) * 60));
   const frame = 0.5;
   const fl = Math.max(1, Math.round(frame * sr));
   const nf = Math.max(1, Math.ceil(f32.length / fl));
@@ -1784,13 +1788,12 @@ function planChunksBySilence(f32, sr, minMinutes) {
   return plan;
 }
 
-/* ДЕКОДИРОВАНИЕ С ПРИНУДИТЕЛЬНОЙ ОЧИСТКОЙ ПАМЯТИ */
 async function decodeAudioAndResample16k(file, chunkMinutes) {
   glog(`Декодирую аудио «${file.name}»...`);
   let ab = await file.arrayBuffer();
   const ac = new (window.AudioContext || window.webkitAudioContext)();
   const audioBuf = await ac.decodeAudioData(ab);
-  ab = null; // Освобождаем память исходного буфера
+  ab = null;
 
   const dur = audioBuf.duration;
   glog(`Длина аудио: ${mmss(dur)} (${Math.round(dur)}с). Нормализация и ресемплинг 16 кГц...`);
@@ -1821,7 +1824,7 @@ async function decodeAudioAndResample16k(file, chunkMinutes) {
     const offlineCtx = new OfflineAudioContext(1, Math.ceil(length * targetSampleRate / audioBuf.sampleRate), targetSampleRate);
     const tempBuffer = offlineCtx.createBuffer(1, length, audioBuf.sampleRate);
     tempBuffer.getChannelData(0).set(monoF32);
-    monoF32 = null; // Освобождаем промежуточный массив
+    monoF32 = null;
     const source = offlineCtx.createBufferSource();
     source.buffer = tempBuffer;
     source.connect(offlineCtx.destination);
@@ -1850,7 +1853,7 @@ async function decodeAudioAndResample16k(file, chunkMinutes) {
     });
   }
 
-  final16kF32 = null; // Полная очистка развернутого аудио из RAM
+  final16kF32 = null;
   glog(`Нарезано кусков: ${chunks.length} (~${chunkMinutes} мин). Память RAM очищена.`);
   return chunks;
 }
@@ -1881,7 +1884,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
     const reader = new FileReader();
     reader.onloadend = () => {
       const res = reader.result.split(',')[1];
-      chunk.wavBlob = null; // Освобождаем бинарный блоб куска сразу же после кодирования в base64
+      chunk.wavBlob = null;
       r(res);
     };
     reader.readAsDataURL(chunk.wavBlob);
@@ -2111,12 +2114,11 @@ document.addEventListener('DOMContentLoaded', () => {
   cleanupStorageQuota();
   loadSavedStyles();
 
-  // Проверка сохраненной авторизации
-  if (localStorage.getItem('af81_auth_unlocked') === 'true') {
+  if (localStorage.getItem('af83_auth_unlocked') === 'true') {
     unlockApp();
   }
 
-  const allPrefixes = ['af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
+  const allPrefixes = ['af83', 'af82', 'af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
   
   for (const pfx of allPrefixes) {
     try {
@@ -2134,6 +2136,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderKeys();
+  handleFormatChange();
 
   if (S.keys.length) {
     fetchAvailableModels();
@@ -2240,6 +2243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.innerHTML = '';
   });
 
+  // Запуск генерации (теперь уважает галочки и макс. сек из Блока 3)
   document.getElementById('btnStartGen')?.addEventListener('click', async () => {
     if (!S.keys.length) return alert('Сначала добавьте хотя бы один ключ в блоке 1!');
     if (!S.batchQueue.length) return alert('Выберите аудиофайл(ы) в блоке 2!');
@@ -2258,13 +2262,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    const chunkMin = Math.max(1, Math.min(20, parseFloat(document.getElementById('gChunk')?.value) || 5));
+    const chunkMin = Math.max(1, Math.min(20, parseFloat(document.getElementById('gChunk')?.value) || 7));
     const par = parseInt(document.getElementById('gPar')?.value, 10) || 2;
     const model = document.getElementById('gModelSelect')?.value || 'gemini-flash-latest';
     const think = document.getElementById('gThink')?.value || '';
     const fallback = document.getElementById('gFallback')?.checked;
     const autoDl = document.getElementById('gAutoDownload')?.checked;
     const saveFormat = document.getElementById('gFormatSelect')?.value || 'srt';
+
+    // Считывание пользовательских настроек из Блока 3
+    const maxDurSetting = parseFloat(document.getElementById('fxMax')?.value) || 10;
+    const useSmart = document.getElementById('fxSmart')?.checked ?? true;
+    const useSort = document.getElementById('fxSort')?.checked ?? true;
+    const useTrim = document.getElementById('fxTrim')?.checked ?? true;
+    const useDedup = document.getElementById('fxDedup')?.checked ?? true;
+    const useSplit = document.getElementById('fxSplitSentences')?.checked ?? true;
+    const useApplyStyles = document.getElementById('fxApplyCustomStyles')?.checked ?? false;
 
     abortController = new AbortController();
     isQueueRunning = true;
@@ -2296,7 +2309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const chunks = await decodeAudioAndResample16k(file, chunkMin);
         const results = new Array(chunks.length);
-        const cachePrefix = `af81_${file.name}_${file.size}_chunk_`;
+        const cachePrefix = `af83_${file.name}_${file.size}_chunk_`;
 
         totalPlannedChunks = chunks.length;
         totalCompletedChunks = 0;
@@ -2327,7 +2340,7 @@ document.addEventListener('DOMContentLoaded', () => {
               results[idx] = resultText;
               S.cache[cacheKey] = resultText;
               try {
-                localStorage.setItem('af81_cache', JSON.stringify(S.cache));
+                localStorage.setItem('af83_cache', JSON.stringify(S.cache));
               } catch (e) {}
 
               totalCompletedChunks++;
@@ -2344,8 +2357,18 @@ document.addEventListener('DOMContentLoaded', () => {
         await Promise.all(pool);
 
         if (!abortController.signal.aborted) {
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.1 Pro') + '\n' + results.filter(Boolean).join('\n');
-          const fr = fixAss(fullRaw, { smart: true, sort: true, trim: true, dedup: true, maxDur: 5, splitSentences: true, applyCustomStyles: true });
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.3 Pro') + '\n' + results.filter(Boolean).join('\n');
+          
+          // Применяем точные пользовательские параметры из Блока 3
+          const fr = fixAss(fullRaw, { 
+            smart: useSmart, 
+            sort: useSort, 
+            trim: useTrim, 
+            dedup: useDedup, 
+            maxDur: maxDurSetting, 
+            splitSentences: useSplit, 
+            applyCustomStyles: useApplyStyles 
+          });
           
           qItem.resultText = fr.text;
           qItem.status = 'done';
@@ -2354,7 +2377,7 @@ document.addEventListener('DOMContentLoaded', () => {
           S.genResult = fr.text;
           showNumbered(document.getElementById('gOut'), S.genResult);
 
-          glog(`— [${qIdx + 1}/${S.batchQueue.length}] Фиксer: строк: ${fr.log[0]?.replace('строк: ','') || 0}`);
+          glog(`— [${qIdx + 1}/${S.batchQueue.length}] Фиксер: строк: ${fr.log[0]?.replace('строк: ','') || 0}`);
           glog(cntLine(fr.cnt));
 
           document.getElementById('btnDlGen').disabled = false;
@@ -2370,7 +2393,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
 
-          // Очистка памяти между сериями и пауза для сборщика мусора
           results.length = 0;
           await sleep(600);
         }
@@ -2453,7 +2475,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dedup: document.getElementById('fxDedup')?.checked,
       splitSentences: document.getElementById('fxSplitSentences')?.checked,
       applyCustomStyles: document.getElementById('fxApplyCustomStyles')?.checked,
-      maxDur: parseFloat(document.getElementById('fxMax')?.value) || 5
+      maxDur: parseFloat(document.getElementById('fxMax')?.value) || 10
     });
 
     S.fixResult = fr.text;
@@ -2482,7 +2504,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v8.1 Pro готов к работе. PIN-защита активна.');
+  glog('ASS & SRT Fixer v8.3 Pro готов. Кусок: 7 мин, лимит: 10 сек, авто-синхронизация активны.');
 });
 </script>
 </body>

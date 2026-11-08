@@ -1,0 +1,2489 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b0e14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ASS & SRT Fixer v8.1 Pro</title>
+<style>
+  :root {
+    --bg-base: #0b0e14;
+    --bg-card: #131826;
+    --border-color: #232b3d;
+    --border-focus: #3b4763;
+    --bg-field: #0e1320;
+    --text-main: #e8ecf4;
+    --text-muted: #8b94a8;
+    --accent-primary: #38bdf8;
+    --accent-secondary: #a78bfa;
+    --accent-success: #34d399;
+    --accent-warning: #fbbf24;
+    --accent-danger: #f87171;
+    --radius: 10px;
+    --font-mono: ui-monospace, 'Consolas', 'Monaco', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    padding: 16px;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+
+  /* Экран блокировки по PIN-коду */
+  .auth-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg-base);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .auth-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
+  }
+
+  header {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #7dd3fc, #a78bfa, #f0abfc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .badge {
+    background: var(--accent-secondary);
+    color: #0b0e14;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+    -webkit-text-fill-color: #0b0e14;
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  input[type=text], input[type=number], input[type=password], select, textarea {
+    width: 100%;
+    background: var(--bg-field);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-main);
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus, textarea:focus { border-color: var(--accent-primary); }
+  textarea { min-height: 80px; resize: vertical; font-family: var(--font-mono); }
+
+  .row { display: flex; gap: 10px; align-items: flex-end; }
+  .row > * { flex: 1; min-width: 0; }
+  .narrow { flex: 0 0 110px !important; }
+
+  .btn {
+    background: #1c2536;
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .btn:hover { background: var(--border-focus); }
+  .btn:disabled { opacity: 0.45; cursor: default; }
+  .btn-pri { background: linear-gradient(90deg, #2563eb, #7c3aed); border: none; color: #fff; }
+  .btn-pri:hover { filter: brightness(1.1); }
+  .btn-success { background: #059669; border-color: #059669; color: #fff; }
+  .btn-danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+  .btn-mini { padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; }
+
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; }
+  .chk input { width: auto; accent-color: var(--accent-primary); }
+
+  .keys-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 140px;
+    overflow-y: auto;
+    background: var(--bg-field);
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+
+  .key-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    background: var(--bg-card);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+  }
+
+  .queue-container {
+    background: var(--bg-field);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .queue-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .queue-item.active { border-color: var(--accent-primary); }
+  .queue-item.done { border-color: var(--accent-success); }
+
+  .queue-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+  }
+
+  .out {
+    background: var(--bg-field);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 6px 8px;
+    height: 220px;
+    overflow-y: auto;
+    font: 12px/1.5 var(--font-mono);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .numrow { display: flex; line-height: 1.4; }
+  .ln { flex: 0 0 36px; color: var(--text-muted); text-align: right; padding-right: 8px; user-select: none; }
+  .lt { flex: 1; min-width: 0; }
+
+  .console {
+    background: #080a0f;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    height: 180px;
+    overflow-y: auto;
+    font: 12px/1.4 var(--font-mono);
+  }
+  .log-entry { margin-bottom: 3px; }
+  .log-time { color: var(--text-muted); margin-right: 6px; }
+  .log-info { color: var(--accent-primary); }
+  .log-warn { color: var(--accent-warning); }
+  .log-err { color: var(--accent-danger); }
+
+  /* МОДАЛЬНОЕ ОКНО */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(4, 6, 12, 0.82);
+    backdrop-filter: blur(6px);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .modal-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 820px;
+    max-height: 94vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.7);
+  }
+
+  .preview-screen {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #334155;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    user-select: none;
+  }
+
+  .preview-video-area {
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    left: 8%;
+    right: 8%;
+    border: 1px dashed rgba(255,255,255,0.18);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.25);
+    font-size: 0.85rem;
+    pointer-events: none;
+  }
+
+  .preview-sub-streamer, .preview-sub-anime {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    max-width: 90%;
+    line-height: 1.25;
+    pointer-events: none;
+    transition: all 0.1s ease;
+  }
+</style>
+</head>
+<body>
+
+<!-- ЭКРАН ВХОДА ПО PIN-КОДУ -->
+<div class="auth-overlay" id="authLockScreen">
+  <div class="auth-card">
+    <div style="font-size: 2.8rem; filter: drop-shadow(0 4px 10px rgba(56,189,248,0.3));">🔐</div>
+    <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">Вход в ASS & SRT Fixer</h2>
+    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Введите ваш PIN-код доступа для разблокировки приложения на планшете:</p>
+    <div>
+      <input type="password" id="authPinInput" maxlength="10" placeholder="••••••" style="text-align: center; font-size: 1.4rem; letter-spacing: 5px; font-weight: bold; padding: 10px;" onkeydown="if(event.key==='Enter')checkAuthPin()">
+    </div>
+    <button class="btn btn-pri" onclick="checkAuthPin()" type="button" style="padding: 10px; font-size: 0.95rem;">Войти в приложение</button>
+    <div id="authErrorMsg" style="color: var(--accent-danger); font-size: 0.8rem; display: none; font-weight: 600;">Неверный PIN-код! Попробуйте снова.</div>
+  </div>
+</div>
+
+<!-- ОСНОВНОЙ ИНТЕРФЕЙС ПРИЛОЖЕНИЯ -->
+<div id="mainAppContent" style="display: none;">
+  <header>
+    <h1>ASS & SRT Fixer <span class="badge">v8.1 Pro</span></h1>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
+      <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
+        Статус: <b id="gStatus" style="color:var(--accent-primary);">Готов к работе</b><br>
+        Запросов сегодня: <b id="statDailyRequests" style="color:var(--text-main);">0</b> |
+        Активных ключей: <b id="statActiveKeys" style="color:var(--text-main);">0</b>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid-layout">
+    <!-- БЛОК 1: Google AI Keys -->
+    <div class="card">
+      <h2>1 · Ключи Google AI (Честный Round-Robin)</h2>
+      <div>
+        <label for="gKeyInput">Вставьте список ключей (каждый с новой строки или через пробел):</label>
+        <textarea id="gKeyInput" placeholder="AQ.Ab8RN...&#10;AIzaSy..."></textarea>
+        <div class="row" style="margin-top: 6px;">
+          <button class="btn btn-pri" id="btnAddKey" type="button" onclick="handleAddKeyClick()">+ Добавить ключи в пул</button>
+        </div>
+      </div>
+      <div>
+        <label>Состояние всех ключей в пуле:</label>
+        <div class="keys-list" id="keysList"></div>
+      </div>
+      <div class="row">
+        <button class="btn btn-danger" id="btnClearKeys" type="button">Удалить все</button>
+        <button class="btn" id="btnResetStats" type="button">Сбросить счетчик дня</button>
+      </div>
+    </div>
+
+    <!-- БЛОК 2: Генерация & Очередь файлов -->
+    <div class="card">
+      <h2>2 · Настройки генерации & Очередь файлов</h2>
+      <div>
+        <label for="gAudioFile">Аудиофайлы (можно выбрать сразу несколько серий):</label>
+        <input type="file" id="gAudioFile" accept="audio/*" multiple>
+      </div>
+
+      <!-- Выбор целевой папки для авто-сохранения -->
+      <div class="row">
+        <div style="flex:2;">
+          <label>Папка авто-сохранения:</label>
+          <div class="row">
+            <button class="btn" id="btnPickFolder" type="button">📁 Папка</button>
+            <span id="pickedFolderLabel" style="font-size:0.8rem; color:var(--accent-warning); align-self:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">По умолчанию (Загрузки)</span>
+          </div>
+        </div>
+        <div style="flex:1;">
+          <label for="gFormatSelect">Основной формат:</label>
+          <select id="gFormatSelect">
+            <option value="srt" selected>.srt (0% нагрева)</option>
+            <option value="ass">.ass</option>
+            <option value="both">Оба (.srt + .ass)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Интерактивная панель очереди файлов -->
+      <div id="batchQueueCard" style="display: none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label style="margin:0;">Очередь серий (<span id="queueTotalCount">0</span> шт.):</label>
+          <span style="font-size:0.75rem; color:var(--accent-primary);">Шаблон: {n} = номер серии</span>
+        </div>
+        
+        <!-- Умный нумератор серии по порядку -->
+        <div class="row" style="margin-bottom: 6px; gap: 8px;">
+          <div style="flex: 2;">
+            <input type="text" id="gNamingPattern" placeholder="Название (например: Игра престолов)">
+          </div>
+          <div style="flex: 0 0 110px;">
+            <input type="number" id="gStartEpNum" min="1" placeholder="Старт с №" value="1" title="Номер серии первого файла">
+          </div>
+          <div style="flex: 0 0 140px;">
+            <button class="btn btn-pri" id="btnApplyPattern" type="button" style="width:100%;">Нумеровать</button>
+          </div>
+        </div>
+
+        <div class="queue-container" id="queueList"></div>
+      </div>
+
+      <!-- Поле имени для одиночного файла генерации -->
+      <div id="singleNameBox">
+        <label for="gSingleOutName">Имя файла для сохранения на устройстве:</label>
+        <div class="row">
+          <input type="text" id="gSingleOutName" placeholder="Например: Игра престолов 4">
+          <span style="flex:0 auto; padding-top:8px; color:var(--accent-success); font-weight:bold;">.srt / .ass</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="gModelSelect">Основная модель Gemini:</label>
+          <select id="gModelSelect">
+            <option value="gemini-flash-latest" selected>gemini-flash-latest (рекомендуется)</option>
+            <option value="gemini-3.6-flash">gemini-3.6-flash (быстрая)</option>
+            <option value="gemini-3.7-flash">gemini-3.7-flash (надежная 3.7)</option>
+            <option value="gemini-3.5-flash">gemini-3.5-flash (классическая)</option>
+            <option value="gemini-3.8-flash">gemini-3.8-flash (флагман 3.8)</option>
+          </select>
+        </div>
+        <button class="btn narrow" id="btnRefreshModels" type="button" title="Запросить все доступные модели через Google API">⟳ Модели</button>
+      </div>
+      <div class="row">
+        <div>
+          <label for="gChunk">Кусок, мин (1–20 мин, реком: 5):</label>
+          <input type="number" id="gChunk" min="1" max="20" step="0.5" value="5">
+        </div>
+        <div>
+          <label for="gPar">Потоков (1–2, оптим: 2 для скорости):</label>
+          <input type="number" id="gPar" min="1" max="2" value="2">
+        </div>
+        <div>
+          <label for="gThink">Thinking:</label>
+          <select id="gThink">
+            <option value="" selected>выкл (быстро, без 400 и 503)</option>
+            <option value="low">низкий</option>
+            <option value="high">высокий</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="align-items:center;">
+        <label class="chk" style="flex: 1 1 180px;">
+          <input type="checkbox" id="gFallback" checked>
+          Авто-смена модели при 503
+        </label>
+        <label class="chk" style="flex: 1 1 180px;" title="Защищает вкладку от засыпания при сворачивании браузера">
+          <input type="checkbox" id="gKeepAlive" checked>
+          Фоновый режим (анти-сон)
+        </label>
+        <label class="chk" style="flex: 1 1 180px;" title="Автоматически скачивает готовую серию и переходит к следующей">
+          <input type="checkbox" id="gAutoDownload" checked>
+          Авто-сохранение готовых
+        </label>
+      </div>
+      <div class="row" style="margin-top: 6px;">
+        <button class="btn btn-pri" id="btnStartGen" type="button">Прогнать (Старт)</button>
+        <button class="btn btn-danger" id="btnStopGen" type="button" disabled>⏹ Стоп</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-layout">
+    <!-- БЛОК 3: Починка субтитров -->
+    <div class="card">
+      <h2>
+        3 · Починить субтитры (.ass / .srt)
+        <button class="btn btn-mini" onclick="openStyleModal()" type="button">🎨 Стили для .ass</button>
+      </h2>
+      <div>
+        <label for="fxFile">Файл .ass / .srt / .txt:</label>
+        <input type="file" id="fxFile" accept=".ass,.srt,.txt,text/plain">
+      </div>
+      <div>
+        <label for="fxPaste">Вставка текста:</label>
+        <textarea id="fxPaste" placeholder="Вставьте сырые строки субтитров..."></textarea>
+        <button class="btn btn-mini" id="btnClearPaste" type="button" style="margin-top: 4px;">✖ Очистить поле</button>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; margin: 6px 0;">
+        <label class="chk" style="color:var(--accent-success); font-weight:bold;">
+          <input type="checkbox" id="fxApplyCustomStyles" checked> 
+          Применить стили к .ass
+        </label>
+        <label class="chk"><input type="checkbox" id="fxSmart" checked> Умное время</label>
+        <label class="chk"><input type="checkbox" id="fxSort" checked> Сортировка</label>
+        <label class="chk"><input type="checkbox" id="fxTrim" checked> Вложенные дубли</label>
+        <label class="chk"><input type="checkbox" id="fxDedup" checked> Дубли</label>
+        <label class="chk"><input type="checkbox" id="fxSplitSentences" checked> 1 предложение на строку</label>
+      </div>
+      <div class="row">
+        <div class="narrow">
+          <label for="fxMax">Макс. сек:</label>
+          <input type="number" id="fxMax" min="1" max="30" value="5">
+        </div>
+        <button class="btn btn-pri" id="btnRunFix" type="button">Починить</button>
+      </div>
+      <div>
+        <label>Результат фикса:</label>
+        <div class="out" id="fxOut"><div style="color:var(--text-muted);">(пусто)</div></div>
+      </div>
+
+      <!-- Поле имени файла для фиксера -->
+      <div>
+        <label for="fxOutName">Имя файла для сохранения на устройстве:</label>
+        <div class="row">
+          <input type="text" id="fxOutName" placeholder="Например: Игра престолов 4 (исправлено)">
+        </div>
+      </div>
+
+      <!-- Кнопки скачивания SRT и ASS (с очищенным названием) -->
+      <div class="row">
+        <button class="btn btn-success" id="btnDlFixedSrt" type="button" disabled title="Стример сверху, Аниме снизу. 0% нагрузки на процессор планшета!">⬇ Скачать .srt</button>
+        <button class="btn btn-pri" id="btnDlFixed" type="button" disabled>⬇ Скачать .ass</button>
+        <button class="btn" id="btnCopyFixed" type="button" disabled>⧉ Копировать</button>
+      </div>
+    </div>
+
+    <!-- БЛОК 4: Вывод генерации -->
+    <div class="card">
+      <h2>4 · Текущий результат генератора</h2>
+      <div>
+        <label>Результат генерации последней обработанной серии:</label>
+        <div class="out" id="gOut"><div style="color:var(--text-muted);">(пусто)</div></div>
+      </div>
+      <div class="row">
+        <button class="btn btn-success" id="btnDlGenSrt" type="button" disabled title="Стример сверху, Аниме снизу. 0% нагрузки!">⬇ Скачать .srt</button>
+        <button class="btn btn-pri" id="btnDlGen" type="button" disabled>⬇ Скачать .ass</button>
+        <button class="btn" id="btnCopyGen" type="button" disabled>⧉ Копировать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- БЛОК 5: Консоль логов -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h2>
+      Консоль журнала
+      <div>
+        <button class="btn btn-mini" id="btnCopyLog" type="button">📋 Скопировать журнал</button>
+        <button class="btn btn-mini" id="btnClearLog" type="button">Очистить журнал</button>
+      </div>
+    </h2>
+    <div class="console" id="logConsole"></div>
+  </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО СТИЛЕЙ ASS -->
+<div class="modal-overlay" id="styleModalOverlay">
+  <div class="modal-dialog">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+      <h2 style="font-size:1.15rem; font-weight:700;">🎨 Настройка стилей для формата .ass</h2>
+      <button class="btn btn-mini btn-danger" onclick="closeStyleModal()" type="button">✕ Закрыть</button>
+    </div>
+
+    <div>
+      <label>Живое превью для .ass:</label>
+      <div class="preview-screen" id="previewScreen">
+        <div class="preview-video-area">
+          <span>Окно видео (16:9)</span>
+        </div>
+        <div class="preview-sub-streamer" id="previewSubStreamer">
+          А она вся такая милая и опрятная...
+        </div>
+        <div class="preview-sub-anime" id="previewSubAnime">
+          Весьма хорошенькая...
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <label style="margin:0; font-weight:bold;">Готовые пресеты:</label>
+      <button class="btn btn-mini btn-pri" onclick="applyPreset('mobile')" type="button">📱 Планшет / Смартфон (110px)</button>
+      <button class="btn btn-mini" onclick="applyPreset('pc')" type="button">💻 Стандартный ПК (48px)</button>
+    </div>
+
+    <div class="grid-layout" style="margin-bottom:0;">
+      <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+        <b style="color:var(--accent-primary); font-size:0.9rem;">Стример (Сверху экрана)</b>
+        <div class="row">
+          <div>
+            <label>Размер шрифта:</label>
+            <input type="number" id="stSize" min="20" max="160" value="110" oninput="handleStyleInputChange()">
+          </div>
+          <div>
+            <label>Отступ сверху (MarginV):</label>
+            <input type="number" id="stMarginV" min="0" max="300" value="30" oninput="handleStyleInputChange()">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Цвет текста:</label>
+            <input type="color" id="stColor" value="#ffffff" style="height:38px; padding:2px;" oninput="handleStyleInputChange()">
+          </div>
+          <div>
+            <label>Обводка (px):</label>
+            <input type="number" id="stOutline" min="0" max="8" value="3" oninput="handleStyleInputChange()">
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+        <b style="color:var(--accent-warning); font-size:0.9rem;">Аниме / Видео (Снизу экрана)</b>
+        <div class="row">
+          <div>
+            <label>Размер шрифта:</label>
+            <input type="number" id="anSize" min="20" max="160" value="110" oninput="handleStyleInputChange()">
+          </div>
+          <div>
+            <label>Отступ снизу (MarginV):</label>
+            <input type="number" id="anMarginV" min="0" max="300" value="30" oninput="handleStyleInputChange()">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Цвет текста:</label>
+            <input type="color" id="anColor" value="#ffffff" style="height:38px; padding:2px;" oninput="handleStyleInputChange()">
+          </div>
+          <div>
+            <label>Обводка (px):</label>
+            <input type="number" id="anOutline" min="0" max="8" value="3" oninput="handleStyleInputChange()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+      <button class="btn" onclick="closeStyleModal()" type="button">Отмена</button>
+      <button class="btn btn-success" onclick="saveUserStyles()" type="button" style="padding:10px 20px;">💾 Сохранить стили .ass</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================================
+   АВТОРИЗАЦИЯ ПО ПАРОЛЮ 696369 (ЗАПОМИНАЕТСЯ НАВСЕГДА)
+   ========================================================================= */
+
+const AUTH_TOKEN = "Njk2MzY5"; // Защищенный base64 от '696369'
+
+function checkAuthPin() {
+  const input = document.getElementById('authPinInput');
+  const val = input ? input.value.trim() : '';
+  
+  if (btoa(val) === AUTH_TOKEN) {
+    localStorage.setItem('af81_auth_unlocked', 'true');
+    unlockApp();
+    glog('Авторизация успешна. Устройство запомнено навсегда.');
+  } else {
+    const err = document.getElementById('authErrorMsg');
+    if (err) err.style.display = 'block';
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+  }
+}
+
+function unlockApp() {
+  const lock = document.getElementById('authLockScreen');
+  const main = document.getElementById('mainAppContent');
+  if (lock) lock.style.display = 'none';
+  if (main) main.style.display = 'block';
+}
+
+/* =========================================================================
+   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И СБОРКА ОЧИСТКИ ПАМЯТИ
+   ========================================================================= */
+
+const RES_W = 1920;
+const RES_H = 1080;
+const deadModels = new Set();
+const keyBusy = new Set();
+const keyCooldowns = new Map();
+let keyRoundRobinIndex = 0;
+
+const activeWorkersProgress = new Map();
+let totalPlannedChunks = 0;
+let totalCompletedChunks = 0;
+
+let silentAudioCtx = null;
+let wakeLockSentinel = null;
+let globalSaveDirHandle = null;
+
+let UserStyles = {
+  streamer: { size: 110, color: '#ffffff', outlineColor: '#000000', outline: 3, marginV: 30 },
+  anime: { size: 110, color: '#ffffff', outlineColor: '#000000', outline: 3, marginV: 30 }
+};
+
+const SAFE_QUALITY_CASCADE = [
+  'gemini-flash-latest',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
+  'gemini-3.5-flash',
+  'gemini-3.8-flash'
+];
+
+const badModel = /tts|image|embed|aqa|veo|imagen|native[-_]?audio|live|banana|customtools|preview-customtools|gemini-pro/i;
+const oldGen = /gemini-[12]\./i;
+
+function okModel(n) {
+  n = String(n || '');
+  return !!n && /^gemini-/.test(n) && !badModel.test(n) && !oldGen.test(n) && !deadModels.has(n);
+}
+
+function hexToAss(hex) {
+  if (!hex || hex[0] !== '#') return '&H00FFFFFF';
+  const r = hex.slice(1, 3);
+  const g = hex.slice(3, 5);
+  const b = hex.slice(5, 7);
+  return `&H00${b}${g}${r}`.toUpperCase();
+}
+
+function fmtSrtTime(sec) {
+  let ms = Math.round(Math.max(0, Number(sec) || 0) * 1000);
+  const hh = Math.floor(ms / 3600000); ms -= hh * 3600000;
+  const mm = Math.floor(ms / 60000); ms -= mm * 60000;
+  const ss = Math.floor(ms / 1000); ms -= ss * 1000;
+  return String(hh).padStart(2, '0') + ':' +
+         String(mm).padStart(2, '0') + ':' +
+         String(ss).padStart(2, '0') + ',' +
+         String(ms).padStart(3, '0');
+}
+
+function assToSrt(assText) {
+  if (!assText) return '';
+  const lines = assText.replace(/\r\n?/g, '\n').split('\n');
+  const entries = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const p = smartParseAssLine(lines[i]);
+    if (!p) continue;
+
+    const t1 = tparse(p.startStr);
+    const t2 = tparse(p.endStr);
+    if (!t1) continue;
+
+    let s = t1.v;
+    let e = t2 ? t2.v : (s + 2.0);
+    if (e <= s) e = s + 1.5;
+
+    let cleanText = p.text.replace(/\{[^}]+\}/g, '').trim();
+    if (!cleanText) continue;
+
+    if (p.style.toLowerCase() === 'streamer') {
+      cleanText = '{\\an8}' + cleanText;
+    }
+
+    entries.push({ s, e, text: cleanText });
+  }
+
+  entries.sort((a, b) => a.s - b.s || a.e - b.e);
+
+  const srtBlocks = [];
+  for (let i = 0; i < entries.length; i++) {
+    const item = entries[i];
+    const idx = i + 1;
+    const timeLine = `${fmtSrtTime(item.s)} --> ${fmtSrtTime(item.e)}`;
+    srtBlocks.push(`${idx}\n${timeLine}\n${item.text}`);
+  }
+
+  return srtBlocks.join('\n\n') + '\n';
+}
+
+function srtToAss(srtText) {
+  if (!srtText) return '';
+  const blocks = srtText.replace(/\r\n?/g, '\n').trim().split(/\n\s*\n/);
+  const outEvents = [];
+
+  for (let b of blocks) {
+    const lines = b.trim().split('\n');
+    if (lines.length < 2) continue;
+
+    let timeLineIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes('-->')) { timeLineIdx = i; break; }
+    }
+    if (timeLineIdx === -1) continue;
+
+    const [t0, t1] = lines[timeLineIdx].split('-->').map(s => s.trim().replace(',', '.'));
+    let text = lines.slice(timeLineIdx + 1).join(' ').trim();
+    if (!text) continue;
+
+    let style = 'Anime';
+    if (text.includes('{\\an8}') || text.includes('{\\an7}') || text.includes('{\\an9}')) {
+      style = 'Streamer';
+      text = text.replace(/\{\\an[789]\}/g, '').trim();
+    }
+
+    const parsedStart = tparse(t0);
+    const parsedEnd = tparse(t1);
+    if (!parsedStart) continue;
+
+    const s = fmtT(parsedStart.v);
+    const e = parsedEnd ? fmtT(parsedEnd.v) : fmtT(parsedStart.v + 2.0);
+
+    outEvents.push(`Dialogue: 0,${s},${e},${style},,0,0,0,,${text}`);
+  }
+
+  return assHeader('Конвертировано из SRT') + '\n' + outEvents.join('\n');
+}
+
+function assHeader(tag) {
+  const st = UserStyles.streamer;
+  const an = UserStyles.anime;
+
+  return '[Script Info]\n'
+    + 'Title: ' + tag + '\n'
+    + 'ScriptType: v4.00+\n'
+    + 'WrapStyle: 0\n'
+    + 'ScaledBorderAndShadow: yes\n'
+    + 'PlayResX: ' + RES_W + '\n'
+    + 'PlayResY: ' + RES_H + '\n\n'
+    + '[V4+ Styles]\n'
+    + 'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n'
+    + `Style: Anime,Arial,${an.size},${hexToAss(an.color)},&H000000FF,${hexToAss(an.outlineColor)},&H00000000,0,0,0,0,100,100,0,0,1,${an.outline},1,2,60,60,${an.marginV},1\n`
+    + `Style: Streamer,Arial,${st.size},${hexToAss(st.color)},&H000000FF,${hexToAss(st.outlineColor)},&H00000000,0,0,0,0,100,100,0,0,1,${st.outline},1,8,60,60,${st.marginV},1\n\n`
+    + '[Events]\n'
+    + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
+}
+
+const SYSTEM_PROMPT = `Ты — элитный синхронный переводчик и субтитровщик видео-реакций.
+Твоя цель: Сформировать субтитры ASS с абсолютной точностью попадания во время звучания голоса.
+
+ДВЕ АВТОНОМНЫЕ ДОРОЖКИ РЕЧИ:
+1. Английская речь стримера (микрофон) -> стиль "Streamer".
+2. Японская речь видео (аниме/фильм) -> стиль "Anime" (имена строго по Поливанову).
+
+ГЛАВНОЕ ПРАВИЛО СИНХРОНИЗАЦИИ (БОРЬБА С ОПЕРЕЖЕНИЕМ И ОПОЗДАНИЕМ):
+1. ЧИСТЫЙ АКУСТИЧЕСКИЙ ТАЙМИНГ: Таймкод строки ставится ИСКЛЮЧИТЕЛЬНО по физическому звуку голоса в аудио, а НЕ по смыслу происходящего на экране!
+   - Стример часто реагирует на шутку с задержкой в 1–3 секунды. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО сдвигать тайминг стримера назад к моменту сцены! Субтитр стримера обязан появляться ровно тогда, когда он начинает говорить в микрофон.
+   - Если стример говорит ПОВЕРХ персонажа аниме (одновременно) — создавай ДВЕ ПАРАЛЛЕЛЬНЫЕ СТРОКИ (одна Anime, вторая Streamer) с ПЕРЕКРЫВАЮЩИМИСЯ таймкодами! Запрещено выстраивать их друг за другом в очередь!
+
+СТАНДАРТЫ ОФОРМЛЕНИЯ:
+2. ОДНА МЫСЛЬ = ОДНА СТРОКА: В каждой строке Dialogue должно быть МАКСИМУМ ОДНО короткое предложение. Как только мысль завершилась (точка, вопрос, восклицание) — сразу закрывай строку.
+3. ОГРАНИЧЕНИЕ ДЛИТЕЛЬНОСТИ: Длительность одной строки — строго от 1.0 до 4.5 секунд. Запрещено делать строки длиннее 5 секунд. Длинные монологи дроби на фазы речи по 2–3 секунды.
+4. ТИПОГРАФИКА: После запятых, точек, двоеточий ОБЯЗАТЕЛЕН пробел. Слипания "слово,слово" запрещены.
+5. ФОРМАТ: Выводи ТОЛЬКО строки ASS без лишнего текста:
+Dialogue: 0,Start,End,Style,,0,0,0,,Перевод на русский язык`;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function glog(msg, level = 'info') {
+  const el = document.getElementById('logConsole');
+  if (!el) return;
+  const d = new Date();
+  const t = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-time">[${t}]</span> <span class="log-${level}">[${level.toUpperCase()}]</span> ${escapeHtml(msg)}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(t) {
+  const el = document.getElementById('gStatus');
+  if (el) el.textContent = t;
+}
+
+function updateMultiStreamStatus() {
+  if (activeWorkersProgress.size === 0) {
+    if (totalPlannedChunks > 0 && totalCompletedChunks === totalPlannedChunks) {
+      setStatus(`Готово: ${totalCompletedChunks} / ${totalPlannedChunks}`);
+    }
+    return;
+  }
+  const details = [];
+  activeWorkersProgress.forEach((val, cNum) => {
+    details.push(`Кусок #${cNum} (${val.sec}с)`);
+  });
+  setStatus(`В работе: [ ${details.join(' | ')} ] · Кусков: ${totalCompletedChunks} / ${totalPlannedChunks}`);
+}
+
+async function startKeepAlive() {
+  const allow = document.getElementById('gKeepAlive')?.checked;
+  if (!allow) return;
+
+  try {
+    if (!silentAudioCtx) {
+      silentAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = silentAudioCtx.createOscillator();
+      const gain = silentAudioCtx.createGain();
+      gain.gain.value = 0.00001;
+      osc.connect(gain);
+      gain.connect(silentAudioCtx.destination);
+      osc.start();
+    }
+    if (silentAudioCtx.state === 'suspended') {
+      await silentAudioCtx.resume();
+    }
+  } catch (e) {}
+
+  try {
+    if ('wakeLock' in navigator && !wakeLockSentinel) {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+    }
+  } catch (e) {}
+}
+
+function stopKeepAlive() {
+  try {
+    if (silentAudioCtx) {
+      silentAudioCtx.close();
+      silentAudioCtx = null;
+    }
+  } catch (e) {}
+  try {
+    if (wakeLockSentinel) {
+      wakeLockSentinel.release();
+      wakeLockSentinel = null;
+    }
+  } catch (e) {}
+}
+
+function escapeHtml(t) {
+  const div = document.createElement('div');
+  div.innerText = t;
+  return div.innerHTML;
+}
+
+function dayKey() { return new Date().toISOString().slice(0, 10); }
+
+function mmss(sec) {
+  sec = Math.round(sec || 0);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function fmtT(x) {
+  let cs = Math.round(Math.max(0, Number(x) || 0) * 100);
+  const hh = Math.floor(cs / 360000); cs -= hh * 360000;
+  const mm = Math.floor(cs / 6000); cs -= mm * 6000;
+  const ss = Math.floor(cs / 100); cs -= ss * 100;
+  return hh + ':' + String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0') + '.' + String(cs).padStart(2, '0');
+}
+
+function tparse(s, plausMax) {
+  const t = String(s == null ? '' : s).replace(/\s+/g, '');
+  if (!t) return null;
+
+  let m = /^(\d{1,2}):(\d{1,2}):(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(t);
+  if (m) return tparse(m[2] + ':' + m[3] + ':' + m[4] + (m[5] ? '.' + m[5] : ''), plausMax);
+
+  m = /^(\d{1,2}):(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(t);
+  if (m) {
+    const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+    const c = parseFloat(m[3] + '.' + (m[4] || '0'));
+    const asHours = a * 3600 + b * 60 + c;
+
+    if (plausMax != null && a >= 1 && asHours > plausMax + 45) {
+      const asMinutes = a * 60 + b + (c / 100);
+      if (asMinutes <= plausMax + 45) return { v: asMinutes, approx: true };
+    }
+    return { v: asHours, approx: false };
+  }
+
+  m = /^(\d{1,3}):(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(t);
+  if (m) return { v: parseInt(m[1], 10) * 60 + parseFloat(m[2] + '.' + (m[3] || '0')), approx: false };
+
+  m = /^(\d{1,5})(?:[.,](\d{1,3}))?$/.exec(t);
+  if (m) return { v: parseFloat(m[1] + '.' + (m[2] || '0')), approx: false };
+
+  return null;
+}
+
+function smartParseAssLine(rawLine) {
+  if (!/^\s*Dialogue\s*:/i.test(rawLine)) return null;
+
+  let line = rawLine.replace(/^\s*Dialogue\s*:\s*/i, '').trim();
+  line = line.replace(/(\b\d{1,2}:\d{2}(?::\d{2})?),(\d{1,3})\b/g, '$1.$2');
+
+  if (/^\d{1,2}:\d{2}(?::\d{2})?[.,]\d+/.test(line) || /^\d{1,2}:\d{2}:\d{2}/.test(line)) {
+    line = '0,' + line;
+  }
+
+  const parts = line.split(',').map(s => s.trim());
+  if (parts.length < 3) return null;
+
+  const isTime = (str) => /^(\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d+)?$/.test(str) || /^\d+[.,]\d+$/.test(str);
+  const isStyle = (str) => /^(anime|streamer|default)$/i.test(str);
+
+  let idx = 0;
+  if (/^\d+$/.test(parts[0]) && !isTime(parts[0])) idx = 1;
+
+  let timeIdx = -1;
+  for (let i = idx; i < parts.length; i++) {
+    if (isTime(parts[i])) { timeIdx = i; break; }
+  }
+  if (timeIdx < 0) return null;
+  idx = timeIdx;
+
+  const startStr = parts[idx];
+  idx++;
+
+  let endStr = null;
+  if (idx < parts.length && isTime(parts[idx])) {
+    endStr = parts[idx];
+    idx++;
+  }
+
+  let style = 'Anime';
+  let name = '';
+
+  if (idx < parts.length && isStyle(parts[idx])) {
+    style = parts[idx].toLowerCase() === 'streamer' ? 'Streamer' : 'Anime';
+    idx++;
+  } else if (idx + 1 < parts.length && isStyle(parts[idx + 1])) {
+    name = parts[idx];
+    style = parts[idx + 1].toLowerCase() === 'streamer' ? 'Streamer' : 'Anime';
+    idx += 2;
+  }
+
+  while (idx < parts.length - 1 && (/^0*$/.test(parts[idx]) || parts[idx] === '')) {
+    idx++;
+  }
+
+  let text = parts.slice(idx).join(',').trim();
+  text = text.replace(/^(Anime|Streamer)\s*,\s*/i, '');
+  if (!text) return null;
+
+  text = text.replace(/([,;:!?])([А-Яа-яA-Za-z0-9«"])/g, '$1 $2');
+
+  return {
+    raw: rawLine,
+    layer: '0',
+    startStr,
+    endStr,
+    style,
+    name,
+    text
+  };
+}
+
+function joinBrokenLines(text) {
+  let cleanText = String(text || '').replace(/\r\n?/g, '\n');
+  cleanText = cleanText.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '');
+  cleanText = cleanText.replace(/(?:^|\n|\s)(?:Dialogue:\s*)?(\d+,\d{1,2}:\d{2}:\d{2})/gi, '\nDialogue: $1');
+  cleanText = cleanText.replace(/\s*(?=Dialogue\s*:)/gi, '\n');
+
+  const src = cleanText.split('\n');
+  const out = [];
+  let glued = 0;
+  const reStart = /^\s*(Dialogue\s*:|\[|;|Title|ScriptType|PlayRes|WrapStyle|ScaledBorder|Format:|Style:)/i;
+
+  for (let li = 0; li < src.length; li++) {
+    const p = src[li].trim();
+    if (!p) continue;
+    if (out.length === 0 || reStart.test(p)) {
+      out.push(p);
+    } else {
+      out[out.length - 1] = out[out.length - 1].replace(/\s+$/, '') + ' ' + p.replace(/^\s+/, '');
+      glued++;
+    }
+  }
+  return { text: out.join('\n'), glued: glued };
+}
+
+function shiftLines(lines, off, chunkDur) {
+  const maxChunkPlaus = (chunkDur || 300) + 45;
+  const parsed = [];
+
+  for (let i = 0; i < (lines || []).length; i++) {
+    const item = smartParseAssLine(lines[i]);
+    if (item) parsed.push(item);
+  }
+
+  const byStyle = { Anime: [], Streamer: [] };
+  parsed.forEach(p => {
+    if (byStyle[p.style]) byStyle[p.style].push(p);
+    else byStyle.Anime.push(p);
+  });
+
+  const out = [];
+
+  ['Anime', 'Streamer'].forEach(styleKey => {
+    const track = byStyle[styleKey];
+    for (let i = 0; i < track.length; i++) {
+      const cur = track[i];
+      const t1 = tparse(cur.startStr, maxChunkPlaus);
+      if (!t1) continue;
+
+      let s = t1.v;
+      let e = null;
+
+      if (cur.endStr) {
+        const t2 = tparse(cur.endStr, maxChunkPlaus);
+        if (t2) e = t2.v;
+      }
+
+      if (e == null || e <= s) {
+        if (i + 1 < track.length) {
+          const nextT = tparse(track[i + 1].startStr, maxChunkPlaus);
+          if (nextT && nextT.v > s && nextT.v - s <= 5.0) {
+            e = nextT.v - 0.05;
+          }
+        }
+      }
+
+      if (e == null || e <= s) {
+        const words = cur.text.split(/\s+/).length;
+        e = s + Math.max(1.5, Math.min(4.5, words * 0.32 + 0.9));
+      }
+
+      out.push('Dialogue: 0,' + fmtT(s + off) + ',' + fmtT(e + off) + ',' + cur.style + ',' + cur.name + ',0,0,0,,' + cur.text);
+    }
+  });
+
+  return out;
+}
+
+function cntLine(c) {
+  return '✔ сдвинуто: ' + (c.shift || 0)
+    + ' · ✔ дубликатов: ' + (c.dedup || 0)
+    + ' · ⚠ поднято/обрезано: ' + ((c.lifted || 0) + (c.endcut || 0))
+    + ' · ⚠ приблизительно: ' + (c.approx || 0)
+    + ' · ✖ битых: ' + (c.broken || 0);
+}
+
+function fixAss(text, opts) {
+  const o = Object.assign({ smart: true, sort: true, trim: true, dedup: true, maxDur: 5, splitSentences: true, applyCustomStyles: true }, opts || {});
+  
+  let norm = String(text || '').replace(/\r\n?/g, '\n');
+  if (!norm.includes('Dialogue:') && norm.includes('-->')) {
+    norm = srtToAss(norm);
+  }
+
+  const maxDur = (Number(o.maxDur) > 0) ? Number(o.maxDur) : 5;
+  const cnt = { shift: 0, dedup: 0, lifted: 0, endcut: 0, approx: 0, broken: 0 };
+  const src = norm.split('\n');
+  
+  let d0 = -1;
+  for (let i = 0; i < src.length; i++) {
+    if (/^\s*Dialogue\s*:/i.test(src[i])) { d0 = i; break; }
+  }
+
+  const hasHeader = /\[Script Info\]/i.test(norm);
+
+  if (d0 < 0) {
+    return { text: assHeader('Починено ASS Fixer v8.1 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
+  }
+
+  let head = (o.applyCustomStyles || !hasHeader) 
+    ? assHeader('Починено ASS Fixer v8.1 Pro').replace(/\n+$/, '')
+    : src.slice(0, d0).join('\n').replace(/\n+$/, '');
+
+  const jn = joinBrokenLines(src.slice(d0).join('\n'));
+  const body = jn.text.split('\n');
+  const rawParsed = [], broken = [];
+
+  for (let i = 0; i < body.length; i++) {
+    const ln = body[i];
+    if (!ln.trim()) continue;
+    const item = smartParseAssLine(ln);
+    if (item) rawParsed.push(item);
+    else broken.push(ln);
+  }
+
+  let plausMax = null;
+  if (o.smart && rawParsed.length) {
+    const vals = [];
+    for (let i = 0; i < rawParsed.length; i++) {
+      const t = tparse(rawParsed[i].startStr, null);
+      if (t && !t.approx) vals.push(t.v);
+    }
+    if (vals.length) {
+      plausMax = Math.min(14400, Math.max(60, Math.max.apply(null, vals)));
+    }
+  }
+
+  const tracks = { Anime: [], Streamer: [] };
+
+  for (let i = 0; i < rawParsed.length; i++) {
+    const p = rawParsed[i];
+    const t1 = tparse(p.startStr, plausMax);
+    if (!t1) { broken.push(p.raw); continue; }
+
+    let s = t1.v;
+    let e = null;
+
+    if (p.endStr) {
+      const t2 = tparse(p.endStr, plausMax);
+      if (t2) e = t2.v;
+    }
+
+    if (e == null || e <= s) {
+      const words = p.text.split(/\s+/).length;
+      e = s + Math.max(1.4, Math.min(maxDur, words * 0.32 + 0.9));
+      cnt.lifted++;
+    }
+
+    const targetTrack = tracks[p.style] || tracks.Anime;
+
+    if (o.splitSentences) {
+      const sentences = p.text.split(/(?<=[.!?…])\s*(?=[А-ЯA-Z0-9«"A-Z])/).map(t => t.trim()).filter(Boolean);
+      if (sentences.length > 1) {
+        const totalChars = sentences.reduce((sum, cur) => sum + cur.length, 0);
+        let curS = s;
+        const totalDuration = Math.max(sentences.length * 1.5, e - s);
+        
+        for (let sIdx = 0; sIdx < sentences.length; sIdx++) {
+          const partRatio = sentences[sIdx].length / Math.max(1, totalChars);
+          let curE = curS + totalDuration * partRatio;
+          if (sIdx === sentences.length - 1) curE = Math.max(curE, e);
+          
+          targetTrack.push({
+            p: Object.assign({}, p, { text: sentences[sIdx] }),
+            s: curS,
+            e: curE,
+            approx: !!t1.approx,
+            dead: false
+          });
+          curS = curE + 0.05;
+        }
+        continue;
+      }
+    }
+
+    targetTrack.push({ p, s, e, approx: !!t1.approx, dead: false });
+  }
+
+  const cleanedRows = [];
+
+  ['Anime', 'Streamer'].forEach(styleKey => {
+    const list = tracks[styleKey];
+    list.sort((a, b) => a.s - b.s || a.e - b.e);
+
+    for (let i = 0; i < list.length; i++) {
+      const cur = list[i];
+      const nx = list[i + 1];
+
+      if (cur.e - cur.s > maxDur) {
+        if (nx && nx.s > cur.s && nx.s - cur.s <= maxDur) {
+          cur.e = nx.s - 0.05;
+        } else {
+          cur.e = cur.s + maxDur;
+        }
+        cnt.endcut++;
+      }
+
+      if (nx && cur.e > nx.s) {
+        cur.e = Math.max(cur.s + 1.2, nx.s - 0.05);
+        cnt.endcut++;
+      }
+    }
+
+    if (o.dedup) {
+      for (let i = list.length - 1; i > 0; i--) {
+        const cur = list[i], prev = list[i - 1];
+        if (!cur.dead && !prev.dead && Math.abs(cur.s - prev.s) < 0.05 && cur.p.text === prev.p.text) {
+          cur.dead = true;
+          cnt.dedup++;
+        }
+      }
+    }
+
+    list.filter(r => !r.dead).forEach(r => cleanedRows.push(r));
+  });
+
+  if (o.sort) {
+    cleanedRows.sort((x, y) => x.s - y.s || x.e - y.e);
+  }
+
+  const ev = [];
+  for (let i = 0; i < cleanedRows.length; i++) {
+    const r = cleanedRows[i];
+    const realS = Math.min(r.s, r.e);
+    let realE = Math.max(r.s, r.e);
+    if (realE - realS < 0.3) realE = realS + 1.2;
+
+    const A = fmtT(realS), B = fmtT(realE);
+    ev.push('Dialogue: 0,' + A + ',' + B + ',' + r.p.style + ',' + r.p.name + ',0,0,0,,' + r.p.text);
+  }
+
+  cnt.broken = broken.length;
+  let outText = head + '\n' + ev.join('\n');
+  if (broken.length) outText += '\n' + broken.join('\n');
+  outText += '\n';
+
+  const log = ['строк: ' + cleanedRows.length];
+  if (o.applyCustomStyles) log.push('обновлены стили');
+  if (cnt.lifted) log.push('поднял концов: ' + cnt.lifted);
+  if (cnt.endcut) log.push('обрезал: ' + cnt.endcut);
+  if (cnt.dedup) log.push('дубликатов убрал: ' + cnt.dedup);
+  if (cnt.broken) log.push('битых: ' + cnt.broken);
+
+  return { text: outText, cnt: cnt, log: log };
+}
+
+/* =========================================================================
+   ЛОГИКА СТИЛЕЙ И ПРЕВЬЮ
+   ========================================================================= */
+
+function loadSavedStyles() {
+  try {
+    const saved = localStorage.getItem('af81_user_styles');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.streamer && parsed.anime) {
+        UserStyles = parsed;
+      }
+    }
+  } catch (e) {}
+}
+
+function saveUserStyles() {
+  const stSize = parseInt(document.getElementById('stSize').value, 10) || 110;
+  const stMarginV = parseInt(document.getElementById('stMarginV').value, 10) || 30;
+  const stColor = document.getElementById('stColor').value || '#ffffff';
+  const stOutline = parseInt(document.getElementById('stOutline').value, 10) || 3;
+
+  const anSize = parseInt(document.getElementById('anSize').value, 10) || 110;
+  const anMarginV = parseInt(document.getElementById('anMarginV').value, 10) || 30;
+  const anColor = document.getElementById('anColor').value || '#ffffff';
+  const anOutline = parseInt(document.getElementById('anOutline').value, 10) || 3;
+
+  UserStyles = {
+    streamer: { size: stSize, color: stColor, outlineColor: '#000000', outline: stOutline, marginV: stMarginV },
+    anime: { size: anSize, color: anColor, outlineColor: '#000000', outline: anOutline, marginV: anMarginV }
+  };
+
+  try {
+    localStorage.setItem('af81_user_styles', JSON.stringify(UserStyles));
+  } catch (e) {}
+
+  closeStyleModal();
+  glog(`Стили для .ass сохранены! Шрифт: ${stSize}px.`);
+}
+
+function updateStylePreview() {
+  const screen = document.getElementById('previewScreen');
+  if (!screen) return;
+
+  const previewWidth = screen.clientWidth || 640;
+  const scale = previewWidth / 1920;
+
+  const stSize = parseInt(document.getElementById('stSize')?.value, 10) || 110;
+  const stMarginV = parseInt(document.getElementById('stMarginV')?.value, 10) || 30;
+  const stColor = document.getElementById('stColor')?.value || '#ffffff';
+  const stOutline = parseInt(document.getElementById('stOutline')?.value, 10) || 3;
+
+  const anSize = parseInt(document.getElementById('anSize')?.value, 10) || 110;
+  const anMarginV = parseInt(document.getElementById('anMarginV')?.value, 10) || 30;
+  const anColor = document.getElementById('anColor')?.value || '#ffffff';
+  const anOutline = parseInt(document.getElementById('anOutline')?.value, 10) || 3;
+
+  const elStreamer = document.getElementById('previewSubStreamer');
+  if (elStreamer) {
+    elStreamer.style.fontSize = Math.round(stSize * scale) + 'px';
+    elStreamer.style.color = stColor;
+    elStreamer.style.marginTop = Math.round(stMarginV * scale) + 'px';
+    const strokeW = Math.max(1, Math.round(stOutline * scale));
+    elStreamer.style.textShadow = `-${strokeW}px -${strokeW}px 0 #000, ${strokeW}px -${strokeW}px 0 #000, -${strokeW}px ${strokeW}px 0 #000, ${strokeW}px ${strokeW}px 0 #000, 0 0 6px #000`;
+  }
+
+  const elAnime = document.getElementById('previewSubAnime');
+  if (elAnime) {
+    elAnime.style.fontSize = Math.round(anSize * scale) + 'px';
+    elAnime.style.color = anColor;
+    elAnime.style.marginBottom = Math.round(anMarginV * scale) + 'px';
+    const strokeW = Math.max(1, Math.round(anOutline * scale));
+    elAnime.style.textShadow = `-${strokeW}px -${strokeW}px 0 #000, ${strokeW}px -${strokeW}px 0 #000, -${strokeW}px ${strokeW}px 0 #000, ${strokeW}px ${strokeW}px 0 #000, 0 0 6px #000`;
+  }
+}
+
+window.handleStyleInputChange = function() {
+  updateStylePreview();
+};
+
+window.applyPreset = function(presetName) {
+  if (presetName === 'mobile') {
+    document.getElementById('stSize').value = 110;
+    document.getElementById('stMarginV').value = 30;
+    document.getElementById('stColor').value = '#ffffff';
+    document.getElementById('stOutline').value = 3;
+
+    document.getElementById('anSize').value = 110;
+    document.getElementById('anMarginV').value = 30;
+    document.getElementById('anColor').value = '#ffffff';
+    document.getElementById('anOutline').value = 3;
+  } else if (presetName === 'pc') {
+    document.getElementById('stSize').value = 46;
+    document.getElementById('stMarginV').value = 50;
+    document.getElementById('stColor').value = '#ffffff';
+    document.getElementById('stOutline').value = 2;
+
+    document.getElementById('anSize').value = 48;
+    document.getElementById('anMarginV').value = 40;
+    document.getElementById('anColor').value = '#ffffff';
+    document.getElementById('anOutline').value = 2;
+  }
+  updateStylePreview();
+};
+
+window.openStyleModal = function() {
+  const modal = document.getElementById('styleModalOverlay');
+  if (!modal) return;
+
+  document.getElementById('stSize').value = UserStyles.streamer.size;
+  document.getElementById('stMarginV').value = UserStyles.streamer.marginV;
+  document.getElementById('stColor').value = UserStyles.streamer.color;
+  document.getElementById('stOutline').value = UserStyles.streamer.outline;
+
+  document.getElementById('anSize').value = UserStyles.anime.size;
+  document.getElementById('anMarginV').value = UserStyles.anime.marginV;
+  document.getElementById('anColor').value = UserStyles.anime.color;
+  document.getElementById('anOutline').value = UserStyles.anime.outline;
+
+  modal.style.display = 'flex';
+  setTimeout(updateStylePreview, 50);
+};
+
+window.closeStyleModal = function() {
+  const modal = document.getElementById('styleModalOverlay');
+  if (modal) modal.style.display = 'none';
+};
+
+/* =========================================================================
+   ИНТЕРФЕЙС И СОХРАНЕНИЕ
+   ========================================================================= */
+
+const S = {
+  keys: [],
+  stats: {},
+  cache: {},
+  serverModels: [],
+  genResult: '',
+  fixResult: '',
+  fixSource: '',
+  activeModelOverride: null,
+  batchQueue: []
+};
+
+let abortController = null;
+let keyWaiters = [];
+let isQueueRunning = false;
+
+function showNumbered(box, text) {
+  box.innerHTML = '';
+  const lines = String(text || '').trim().split('\n');
+  if (!lines.length || !lines[0]) {
+    box.innerHTML = '<div style="color:var(--text-muted);">(пусто)</div>';
+    return;
+  }
+  lines.forEach((ln, idx) => {
+    const row = document.createElement('div');
+    row.className = 'numrow';
+    row.innerHTML = `<span class="ln">${idx + 1}</span><span class="lt">${escapeHtml(ln)}</span>`;
+    box.appendChild(row);
+  });
+}
+
+async function saveSubtitleFile(filename, text, ext = 'srt') {
+  if (!text) return;
+
+  let cleanName = filename.trim().replace(/\.(ass|srt|txt)+$/i, '');
+  const finalFilename = cleanName + '.' + ext;
+  const mimeType = ext === 'srt' ? 'text/plain' : 'text/x-ssa';
+
+  if (globalSaveDirHandle) {
+    try {
+      const fileHandle = await globalSaveDirHandle.getFileHandle(finalFilename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      glog(`Файл «${finalFilename}» сохранён в выбранную папку: [${globalSaveDirHandle.name}]`);
+      return;
+    } catch (e) {
+      glog(`Не удалось записать в папку [${globalSaveDirHandle.name}]: ${e.message}`, 'warn');
+    }
+  }
+
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: finalFilename,
+        types: [{
+          description: ext.toUpperCase() + ' Subtitles',
+          accept: { [mimeType]: ['.' + ext] }
+        }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      glog(`Файл успешно сохранён: ${handle.name}`);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+
+  const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = finalFilename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function cleanupStorageQuota() {
+  try {
+    const oldKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('af') && !k.startsWith('af81')) {
+        oldKeys.push(k);
+      }
+    }
+    oldKeys.forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+}
+
+function saveKeys() {
+  try {
+    localStorage.setItem('af81_keys', JSON.stringify(S.keys));
+    localStorage.setItem('af81_stats', JSON.stringify(S.stats));
+  } catch (e) {
+    cleanupStorageQuota();
+    try {
+      localStorage.setItem('af81_keys', JSON.stringify(S.keys));
+      localStorage.setItem('af81_stats', JSON.stringify(S.stats));
+    } catch (e2) {}
+  }
+  renderKeys();
+}
+
+function renderKeys() {
+  const list = document.getElementById('keysList');
+  if (!list) return;
+  list.innerHTML = '';
+  let totalDaily = 0;
+  const dk = dayKey();
+
+  if (!S.keys.length) {
+    list.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; padding: 4px;">Нет активных ключей. Вставьте ключи в поле выше и нажмите кнопку.</div>';
+    const elAct = document.getElementById('statActiveKeys');
+    const elReq = document.getElementById('statDailyRequests');
+    if (elAct) elAct.innerText = '0';
+    if (elReq) elReq.innerText = '0';
+    return;
+  }
+
+  S.keys.forEach((k, idx) => {
+    const st = S.stats[k] || { day: dk, n: 0, dead: false };
+    if (st.day === dk) totalDaily += st.n;
+    const masked = k.slice(0, 8) + '…' + k.slice(-4);
+    const icon = st.dead ? '⛔ dead' : (st.daily ? '🔴 limit' : (st.n > 0 ? '🟢 ' + st.n : '⚪ 0'));
+
+    const div = document.createElement('div');
+    div.className = 'key-item';
+    div.innerHTML = `
+      <span><b>#${idx + 1}</b> · ${masked} (${icon})</span>
+      <button class="btn btn-danger btn-mini" onclick="removeKey(${idx})">✕</button>
+    `;
+    list.appendChild(div);
+  });
+
+  const elAct = document.getElementById('statActiveKeys');
+  const elReq = document.getElementById('statDailyRequests');
+  if (elAct) elAct.innerText = String(S.keys.length);
+  if (elReq) elReq.innerText = String(totalDaily);
+}
+
+window.removeKey = function(idx) {
+  const removed = S.keys.splice(idx, 1)[0];
+  saveKeys();
+  glog(`Ключ #${idx + 1} (${removed.slice(0, 8)}…) удален.`);
+};
+
+function addKeys(rawInput) {
+  if (!rawInput || !rawInput.trim()) {
+    glog('Поле ввода ключей пусто!', 'warn');
+    return;
+  }
+
+  const tokens = rawInput
+    .split(/[\r\n,;\s]+/)
+    .map(s => s.trim().replace(/^["']|["']$/g, ''))
+    .filter(Boolean);
+
+  let added = 0;
+  let dupes = 0;
+
+  tokens.forEach(tok => {
+    if (tok.length >= 25) {
+      if (S.keys.includes(tok)) {
+        dupes++;
+      } else {
+        S.keys.push(tok);
+        S.stats[tok] = { day: dayKey(), n: 0, dead: false };
+        added++;
+      }
+    }
+  });
+
+  if (added > 0) {
+    saveKeys();
+    glog(`Успешно добавлено ключей: ${added} (пропущено дубликатов: ${dupes})`);
+    fetchAvailableModels();
+  } else if (dupes > 0) {
+    glog(`Все указанные ключи (${dupes} шт.) уже есть в списке!`, 'warn');
+  } else {
+    glog('Не удалось распознать ключи Google API в тексте.', 'err');
+  }
+}
+
+window.handleAddKeyClick = function() {
+  const input = document.getElementById('gKeyInput');
+  if (input) {
+    addKeys(input.value);
+    input.value = '';
+  }
+};
+
+function acquireKey() {
+  const now = Date.now();
+  const aliveKeys = S.keys.filter(k => !(S.stats[k] && (S.stats[k].dead || S.stats[k].daily)));
+  if (!aliveKeys.length) return Promise.resolve(null);
+
+  for (let offset = 0; offset < aliveKeys.length; offset++) {
+    const idx = (keyRoundRobinIndex + offset) % aliveKeys.length;
+    const k = aliveKeys[idx];
+
+    if (keyBusy.has(k)) continue;
+
+    const cd = keyCooldowns.get(k) || 0;
+    if (cd > now && aliveKeys.some(other => !keyBusy.has(other) && (keyCooldowns.get(other) || 0) <= now)) {
+      continue;
+    }
+
+    keyBusy.add(k);
+    keyRoundRobinIndex = (idx + 1) % aliveKeys.length;
+    return Promise.resolve({
+      key: k,
+      index: S.keys.indexOf(k) + 1,
+      masked: k.slice(0, 8) + '…' + k.slice(-4)
+    });
+  }
+
+  return new Promise(resolve => keyWaiters.push(resolve));
+}
+
+function releaseKey(k) {
+  keyBusy.delete(k);
+  if (keyWaiters.length > 0) {
+    const waiter = keyWaiters.shift();
+    keyBusy.add(k);
+    waiter({
+      key: k,
+      index: S.keys.indexOf(k) + 1,
+      masked: k.slice(0, 8) + '…' + k.slice(-4)
+    });
+  }
+}
+
+function putKeyOnCooldown(key, sec = 40) {
+  keyCooldowns.set(key, Date.now() + sec * 1000);
+}
+
+async function fetchAvailableModels() {
+  if (!S.keys.length) return;
+  const key = S.keys[0];
+  const select = document.getElementById('gModelSelect');
+  glog(`Синхронизация моделей Google AI...`);
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(key)}`, {
+      headers: { 'x-goog-api-key': key }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    
+    const models = (data.models || []).filter(m => 
+      Array.isArray(m.supportedGenerationMethods) && 
+      m.supportedGenerationMethods.includes('generateContent') &&
+      okModel(m.name.replace(/^models\//, ''))
+    ).map(m => m.name.replace(/^models\//, ''));
+
+    if (models.length) {
+      S.serverModels = models;
+      const curVal = select.value;
+      select.innerHTML = '';
+      
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m + (!m.includes('lite') ? ' 🌟 (высокое качество)' : ' ⚡ (быстрая)');
+        select.appendChild(opt);
+      });
+
+      if (models.includes('gemini-flash-latest')) {
+        select.value = 'gemini-flash-latest';
+      } else if (models.includes('gemini-3.6-flash')) {
+        select.value = 'gemini-3.6-flash';
+      } else if (models.includes('gemini-3.7-flash')) {
+        select.value = 'gemini-3.7-flash';
+      } else if (models.includes(curVal)) {
+        select.value = curVal;
+      }
+      glog(`Загружено проверенных моделей: ${models.length}. Выбрана: [${select.value}]`);
+    }
+  } catch (e) {
+    glog(`Не удалось обновить список моделей с сервера: ${e.message}`, 'warn');
+  }
+}
+
+function planChunksBySilence(f32, sr, minMinutes) {
+  const chunkSec = Math.max(60, Math.min(1200, (Number(minMinutes) || 5) * 60));
+  const frame = 0.5;
+  const fl = Math.max(1, Math.round(frame * sr));
+  const nf = Math.max(1, Math.ceil(f32.length / fl));
+  const rms = new Float32Array(nf);
+
+  for (let f = 0; f < nf; f++) {
+    const i0 = f * fl, i1 = Math.min(f32.length, i0 + fl);
+    let s = 0;
+    for (let i = i0; i < i1; i++) s += f32[i] * f32[i];
+    rms[f] = Math.sqrt(s / Math.max(1, i1 - i0));
+  }
+
+  const srt = Array.prototype.slice.call(rms).sort((x, y) => x - y);
+  const p12 = srt[Math.floor(srt.length * 0.12)] || 0;
+  const thr = Math.max(0.004, p12 * 1.6);
+  const total = f32.length / sr;
+  const plan = [];
+  let a = 0;
+
+  while (total - a > chunkSec) {
+    const target = a + chunkSec;
+    const lo = Math.max((a + 20) / frame, (target - 30) / frame);
+    const hi = Math.min((total - 0.5) / frame, (target + 30) / frame);
+    
+    let bestF = -1, bestV = Infinity;
+    for (let f = Math.max(0, Math.ceil(lo)); f <= Math.min(rms.length - 1, Math.floor(hi)); f++) {
+      if (rms[f] < bestV) { bestV = rms[f]; bestF = f; }
+    }
+
+    let cut = (bestF >= 0 && bestV <= thr) ? bestF * frame + frame / 2 : -1;
+    if (cut < 0 || cut <= a + 20 || cut >= total - 0.5) cut = target;
+    plan.push([a, cut]);
+    a = cut;
+  }
+  if (total - a > 0.5) plan.push([a, total]);
+  return plan;
+}
+
+/* ДЕКОДИРОВАНИЕ С ПРИНУДИТЕЛЬНОЙ ОЧИСТКОЙ ПАМЯТИ */
+async function decodeAudioAndResample16k(file, chunkMinutes) {
+  glog(`Декодирую аудио «${file.name}»...`);
+  let ab = await file.arrayBuffer();
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuf = await ac.decodeAudioData(ab);
+  ab = null; // Освобождаем память исходного буфера
+
+  const dur = audioBuf.duration;
+  glog(`Длина аудио: ${mmss(dur)} (${Math.round(dur)}с). Нормализация и ресемплинг 16 кГц...`);
+
+  const numChannels = audioBuf.numberOfChannels;
+  const length = audioBuf.length;
+  let monoF32 = new Float32Array(length);
+  for (let ch = 0; ch < numChannels; ch++) {
+    const chData = audioBuf.getChannelData(ch);
+    for (let i = 0; i < length; i++) monoF32[i] += chData[i] / numChannels;
+  }
+
+  let maxPeak = 0;
+  for (let i = 0; i < length; i++) {
+    const abs = Math.abs(monoF32[i]);
+    if (abs > maxPeak) maxPeak = abs;
+  }
+  if (maxPeak > 0.01) {
+    const gain = 0.9 / maxPeak;
+    for (let i = 0; i < length; i++) monoF32[i] *= gain;
+  }
+
+  let final16kF32;
+  const targetSampleRate = 16000;
+  if (audioBuf.sampleRate === targetSampleRate) {
+    final16kF32 = monoF32;
+  } else {
+    const offlineCtx = new OfflineAudioContext(1, Math.ceil(length * targetSampleRate / audioBuf.sampleRate), targetSampleRate);
+    const tempBuffer = offlineCtx.createBuffer(1, length, audioBuf.sampleRate);
+    tempBuffer.getChannelData(0).set(monoF32);
+    monoF32 = null; // Освобождаем промежуточный массив
+    const source = offlineCtx.createBufferSource();
+    source.buffer = tempBuffer;
+    source.connect(offlineCtx.destination);
+    source.start(0);
+    const rendered = await offlineCtx.startRendering();
+    final16kF32 = rendered.getChannelData(0);
+  }
+  await ac.close();
+
+  const plan = planChunksBySilence(final16kF32, targetSampleRate, chunkMinutes);
+  const chunks = [];
+
+  for (let i = 0; i < plan.length; i++) {
+    const [startSec, endSec] = plan[i];
+    const i0 = Math.floor(startSec * targetSampleRate);
+    const i1 = Math.min(final16kF32.length, Math.floor(endSec * targetSampleRate));
+    const sliceData = final16kF32.subarray(i0, i1);
+    const wavBlob = f32ToWavBlob(sliceData, targetSampleRate);
+
+    chunks.push({
+      index: i,
+      startSec,
+      endSec,
+      duration: endSec - startSec,
+      wavBlob
+    });
+  }
+
+  final16kF32 = null; // Полная очистка развернутого аудио из RAM
+  glog(`Нарезано кусков: ${chunks.length} (~${chunkMinutes} мин). Память RAM очищена.`);
+  return chunks;
+}
+
+function f32ToWavBlob(f32, sr) {
+  const n = f32.length;
+  const ab = new ArrayBuffer(44 + n * 2);
+  const dv = new DataView(ab);
+  const setS = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+
+  const view = dv;
+  setS(0, 'RIFF'); view.setUint32(4, 36 + n * 2, true); setS(8, 'WAVE');
+  setS(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, sr, true); view.setUint32(28, sr * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  setS(36, 'data'); view.setUint32(40, n * 2, true);
+
+  let o = 44;
+  for (let i = 0; i < n; i++) {
+    const v = Math.max(-1, Math.min(1, f32[i] || 0));
+    view.setInt16(o, v < 0 ? v * 32768 : v * 32767, true);
+    o += 2;
+  }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+
+async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback, mainSignal) {
+  const b64Promise = new Promise(r => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const res = reader.result.split(',')[1];
+      chunk.wavBlob = null; // Освобождаем бинарный блоб куска сразу же после кодирования в base64
+      r(res);
+    };
+    reader.readAsDataURL(chunk.wavBlob);
+  });
+  const b64Audio = await b64Promise;
+
+  let modelQueue = [S.activeModelOverride || chosenModel];
+  if (allowFallback) {
+    SAFE_QUALITY_CASCADE.forEach(m => {
+      if (!modelQueue.includes(m) && !deadModels.has(m)) modelQueue.push(m);
+    });
+  }
+
+  let lastError = null;
+
+  for (let mIdx = 0; mIdx < modelQueue.length; mIdx++) {
+    const currentModel = modelQueue[mIdx];
+    if (deadModels.has(currentModel)) continue;
+
+    let attempts = 0;
+    const maxAttemptsForThisModel = (mIdx === 0) ? 2 : 1;
+
+    while (attempts < maxAttemptsForThisModel) {
+      if (mainSignal.aborted) throw new Error('Прервано пользователем');
+
+      const keyObj = await acquireKey();
+      if (!keyObj) throw new Error('Все ключи исчерпаны или заблокированы!');
+
+      glog(`Кусок #${chunk.index + 1} (${mmss(chunk.startSec)}–${mmss(chunk.endSec)}) → ключ #${keyObj.index} (${keyObj.masked}) · [${currentModel}]...`);
+
+      const t0 = Date.now();
+      activeWorkersProgress.set(chunk.index + 1, { sec: 0, model: currentModel });
+      updateMultiStreamStatus();
+
+      const progressTimer = setInterval(() => {
+        const elapsedSec = Math.round((Date.now() - t0) / 1000);
+        activeWorkersProgress.set(chunk.index + 1, { sec: elapsedSec, model: currentModel });
+        updateMultiStreamStatus();
+      }, 1000);
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(keyObj.key)}`;
+      
+      const payload = {
+        system_instruction: {
+          parts: [{ text: SYSTEM_PROMPT }]
+        },
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: 'audio/wav', data: b64Audio } }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.15,
+          topP: 0.8
+        }
+      };
+
+      if (attempts === 0 && (think === 'low' || think === 'high')) {
+        payload.generationConfig.thinking_budget = (think === 'high' ? 2048 : 1024);
+      }
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': keyObj.key
+          },
+          body: JSON.stringify(payload),
+          signal: mainSignal
+        });
+
+        clearInterval(progressTimer);
+        activeWorkersProgress.delete(chunk.index + 1);
+        updateMultiStreamStatus();
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw { status: res.status, text: errText };
+        }
+
+        const j = await res.json();
+        S.stats[keyObj.key].n = (S.stats[keyObj.key].n || 0) + 1;
+        saveKeys();
+        releaseKey(keyObj.key);
+
+        const rawSub = j.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        const hasDialogue = /Dialogue\s*:/i.test(rawSub);
+        if (!hasDialogue && chunk.duration > 15) {
+          attempts++;
+          glog(`Кусок #${chunk.index + 1}: Модель выдала ответ без Dialogue. Повтор...`, 'warn');
+          await sleep(1500);
+          continue;
+        }
+
+        if (currentModel !== chosenModel && !S.activeModelOverride) {
+          S.activeModelOverride = currentModel;
+          glog(`Модель [${currentModel}] отвечает стабильно. Переключаемся на неё.`, 'warn');
+        }
+
+        return { rawSub, keyUsed: keyObj.index, modelUsed: currentModel };
+      } catch (err) {
+        clearInterval(progressTimer);
+        activeWorkersProgress.delete(chunk.index + 1);
+        updateMultiStreamStatus();
+        
+        putKeyOnCooldown(keyObj.key, 40);
+        releaseKey(keyObj.key);
+
+        if (mainSignal.aborted) throw new Error('Прервано пользователем');
+
+        const status = err.status || 0;
+        lastError = err.text || err.message || `HTTP ${status}`;
+
+        if (status === 404) {
+          deadModels.add(currentModel);
+          glog(`Модель [${currentModel}] недоступна (404) — исключена...`, 'warn');
+          break;
+        }
+
+        attempts++;
+
+        if (status === 503 || status === 500 || status === 502) {
+          glog(`Кусок #${chunk.index + 1}: [${currentModel}] перегружена (503). Смена ключа...`, 'warn');
+          await sleep(2000);
+          continue;
+        }
+
+        if (status === 429) {
+          glog(`Ключ #${keyObj.index} уперся в лимит (429). Ротация ключа...`, 'warn');
+          await sleep(2500);
+          continue;
+        }
+
+        glog(`Кусок #${chunk.index + 1}: Ошибка [${currentModel}] (${status === 0 ? 'Сеть' : 'HTTP ' + status}). Повтор...`, 'warn');
+        await sleep(2000);
+      }
+    }
+
+    if (mIdx < modelQueue.length - 1) {
+      const nextM = modelQueue[mIdx + 1];
+      if (!deadModels.has(nextM)) {
+        glog(`Кусок #${chunk.index + 1}: Переход на резервную модель [${nextM}]...`, 'warn');
+        await sleep(1000);
+      }
+    }
+  }
+
+  throw new Error(`Не удалось расшифровать кусок #${chunk.index + 1}. Последний ответ Google: ${lastError}`);
+}
+
+function extractEpisodeNumber(filename) {
+  const m = filename.match(/(?:ep|s\d+e|серия|эпизод|выпуск|\b)(\d+)\b/i);
+  return m ? m[1] : '';
+}
+
+function renderBatchQueue() {
+  const container = document.getElementById('queueList');
+  const countSpan = document.getElementById('queueTotalCount');
+  if (!container) return;
+  container.innerHTML = '';
+  countSpan.innerText = String(S.batchQueue.length);
+
+  S.batchQueue.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = `queue-item ${item.status === 'processing' ? 'active' : ''} ${item.status === 'done' ? 'done' : ''}`;
+    
+    let statusText = 'В очереди';
+    if (item.status === 'processing') statusText = '<span style="color:var(--accent-primary);">⚡ Обработка...</span>';
+    if (item.status === 'done') statusText = '<span style="color:var(--accent-success);">✔ Готово</span>';
+
+    div.innerHTML = `
+      <div class="queue-item-header">
+        <b>#${idx + 1} · ${escapeHtml(item.file.name)}</b>
+        <span>${statusText}</span>
+      </div>
+      <div class="row">
+        <input type="text" value="${escapeHtml(item.customName)}" oninput="updateQueueItemName(${idx}, this.value)" placeholder="Имя для сохранения">
+        <button class="btn btn-mini btn-success" style="flex:0 auto;" ${item.status === 'done' ? '' : 'disabled'} onclick="downloadQueueItem(${idx}, 'srt')">⬇ .srt</button>
+        <button class="btn btn-mini" style="flex:0 auto;" ${item.status === 'done' ? '' : 'disabled'} onclick="downloadQueueItem(${idx}, 'ass')">⬇ .ass</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+window.updateQueueItemName = function(idx, val) {
+  if (S.batchQueue[idx]) S.batchQueue[idx].customName = val;
+};
+
+window.downloadQueueItem = function(idx, ext = 'srt') {
+  const item = S.batchQueue[idx];
+  if (!item || !item.resultText) return;
+  const content = ext === 'srt' ? assToSrt(item.resultText) : item.resultText;
+  saveSubtitleFile(item.customName, content, ext);
+};
+
+function applyNamingPattern() {
+  const patternInput = document.getElementById('gNamingPattern');
+  const startNumInput = document.getElementById('gStartEpNum');
+  
+  let pattern = patternInput ? patternInput.value.trim() : '';
+  let startEp = parseInt(startNumInput ? startNumInput.value : '1', 10);
+  if (isNaN(startEp) || startEp < 0) startEp = 1;
+
+  if (!pattern) return alert('Введите название, например: Игра престолов');
+
+  S.batchQueue.forEach((item, idx) => {
+    const currentEp = startEp + idx;
+    if (pattern.includes('{n}') || pattern.includes('{N}')) {
+      item.customName = pattern.replace(/\{n\}/gi, currentEp);
+    } else {
+      item.customName = `${pattern} ${currentEp}`;
+    }
+  });
+
+  renderBatchQueue();
+  glog(`Применена сквозная нумерация: «${pattern}» с ${startEp} по ${startEp + S.batchQueue.length - 1} серию.`);
+}
+
+/* =========================================================================
+   ИНИЦИАЛИЗАЦИЯ И ОБРАБОТЧИКИ СОБЫТИЙ
+   ========================================================================= */
+
+document.addEventListener('DOMContentLoaded', () => {
+  cleanupStorageQuota();
+  loadSavedStyles();
+
+  // Проверка сохраненной авторизации
+  if (localStorage.getItem('af81_auth_unlocked') === 'true') {
+    unlockApp();
+  }
+
+  const allPrefixes = ['af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
+  
+  for (const pfx of allPrefixes) {
+    try {
+      const saved = localStorage.getItem(pfx + '_keys');
+      if (saved) {
+        const arr = JSON.parse(saved);
+        if (Array.isArray(arr) && arr.length > 0 && S.keys.length === 0) {
+          S.keys = arr;
+          const savedStats = localStorage.getItem(pfx + '_stats');
+          if (savedStats) S.stats = JSON.parse(savedStats) || {};
+          break;
+        }
+      }
+    } catch (e) {}
+  }
+
+  renderKeys();
+
+  if (S.keys.length) {
+    fetchAvailableModels();
+  }
+
+  document.getElementById('btnOpenStyleModal')?.addEventListener('click', openStyleModal);
+
+  document.getElementById('btnPickFolder')?.addEventListener('click', async () => {
+    if ('showDirectoryPicker' in window) {
+      try {
+        const dirHandle = await window.showDirectoryPicker({
+          mode: 'readwrite'
+        });
+
+        const perm = await dirHandle.requestPermission({ mode: 'readwrite' });
+        if (perm === 'granted') {
+          globalSaveDirHandle = dirHandle;
+          const lbl = document.getElementById('pickedFolderLabel');
+          lbl.innerText = `📁 [ ${dirHandle.name} ]`;
+          lbl.style.color = 'var(--accent-success)';
+          glog(`Выбрана папка для авто-сохранения: [${dirHandle.name}]`);
+        } else {
+          glog('Разрешение на запись в папку было отклонено.', 'warn');
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') glog('Ошибка выбора папки: ' + err.message, 'warn');
+      }
+    } else {
+      alert('Ваш браузер не поддерживает showDirectoryPicker. Будет использоваться стандартное сохранение файла.');
+    }
+  });
+
+  document.getElementById('gAudioFile')?.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    let detectedStart = 1;
+    const firstEp = extractEpisodeNumber(files[0].name);
+    if (firstEp && !isNaN(parseInt(firstEp, 10))) {
+      detectedStart = parseInt(firstEp, 10);
+    }
+    const startInput = document.getElementById('gStartEpNum');
+    if (startInput) startInput.value = detectedStart;
+
+    S.batchQueue = files.map((file, i) => {
+      const baseClean = file.name.replace(/\.[^/.]+$/, '').trim();
+      const epNum = extractEpisodeNumber(file.name);
+      const defaultName = epNum ? `Серия ${epNum}` : baseClean;
+      return {
+        file,
+        customName: defaultName,
+        status: 'pending',
+        resultText: ''
+      };
+    });
+
+    const queueCard = document.getElementById('batchQueueCard');
+    const singleBox = document.getElementById('singleNameBox');
+    const singleInput = document.getElementById('gSingleOutName');
+
+    if (files.length > 1) {
+      if (queueCard) queueCard.style.display = 'block';
+      if (singleBox) singleBox.style.display = 'none';
+      renderBatchQueue();
+      glog(`Выбрано файлов для очереди: ${files.length} шт.`);
+    } else {
+      if (queueCard) queueCard.style.display = 'none';
+      if (singleBox) singleBox.style.display = 'block';
+      if (singleInput) singleInput.value = S.batchQueue[0].customName;
+      glog(`Выбран одиночный файл: «${files[0].name}»`);
+    }
+  });
+
+  document.getElementById('btnApplyPattern')?.addEventListener('click', applyNamingPattern);
+
+  document.getElementById('btnClearKeys')?.addEventListener('click', () => {
+    if (confirm('Очистить все ключи?')) {
+      S.keys = [];
+      S.stats = {};
+      saveKeys();
+      glog('Все ключи удалены.');
+    }
+  });
+
+  document.getElementById('btnResetStats')?.addEventListener('click', () => {
+    Object.keys(S.stats).forEach(k => S.stats[k].n = 0);
+    saveKeys();
+    glog('Счетчики дневных запросов сброшены.');
+  });
+
+  document.getElementById('btnRefreshModels')?.addEventListener('click', fetchAvailableModels);
+
+  document.getElementById('btnCopyLog')?.addEventListener('click', () => {
+    const logs = Array.from(document.querySelectorAll('#logConsole .log-entry'))
+      .map(el => el.innerText).join('\n');
+    if (!logs) return alert('Журнал пуст!');
+    navigator.clipboard.writeText(logs).then(() => {
+      glog('Весь журнал скопирован в буфер обмена!');
+    });
+  });
+
+  document.getElementById('btnClearLog')?.addEventListener('click', () => {
+    const el = document.getElementById('logConsole');
+    if (el) el.innerHTML = '';
+  });
+
+  document.getElementById('btnStartGen')?.addEventListener('click', async () => {
+    if (!S.keys.length) return alert('Сначала добавьте хотя бы один ключ в блоке 1!');
+    if (!S.batchQueue.length) return alert('Выберите аудиофайл(ы) в блоке 2!');
+
+    if (globalSaveDirHandle) {
+      try {
+        const queryPerm = await globalSaveDirHandle.queryPermission({ mode: 'readwrite' });
+        if (queryPerm !== 'granted') {
+          const reqPerm = await globalSaveDirHandle.requestPermission({ mode: 'readwrite' });
+          if (reqPerm !== 'granted') {
+            glog('Предупреждение: доступ к папке не подтвержден. Будет использована папка Загрузок.', 'warn');
+          }
+        }
+      } catch (e) {
+        glog('Проверка доступа к папке: ' + e.message, 'warn');
+      }
+    }
+
+    const chunkMin = Math.max(1, Math.min(20, parseFloat(document.getElementById('gChunk')?.value) || 5));
+    const par = parseInt(document.getElementById('gPar')?.value, 10) || 2;
+    const model = document.getElementById('gModelSelect')?.value || 'gemini-flash-latest';
+    const think = document.getElementById('gThink')?.value || '';
+    const fallback = document.getElementById('gFallback')?.checked;
+    const autoDl = document.getElementById('gAutoDownload')?.checked;
+    const saveFormat = document.getElementById('gFormatSelect')?.value || 'srt';
+
+    abortController = new AbortController();
+    isQueueRunning = true;
+
+    const btnStart = document.getElementById('btnStartGen');
+    const btnStop = document.getElementById('btnStopGen');
+    if (btnStart) btnStart.disabled = true;
+    if (btnStop) btnStop.disabled = false;
+
+    await startKeepAlive();
+
+    try {
+      for (let qIdx = 0; qIdx < S.batchQueue.length; qIdx++) {
+        if (abortController.signal.aborted) break;
+
+        const qItem = S.batchQueue[qIdx];
+        qItem.status = 'processing';
+        renderBatchQueue();
+
+        const file = qItem.file;
+        let outName = qItem.customName;
+        if (S.batchQueue.length === 1) {
+          const sNameInput = document.getElementById('gSingleOutName');
+          if (sNameInput && sNameInput.value.trim()) outName = sNameInput.value.trim();
+        }
+
+        glog(`=== Очередь [${qIdx + 1}/${S.batchQueue.length}]: «${file.name}» ===`);
+        setStatus(`[${qIdx + 1}/${S.batchQueue.length}] Нарезка аудио...`);
+
+        const chunks = await decodeAudioAndResample16k(file, chunkMin);
+        const results = new Array(chunks.length);
+        const cachePrefix = `af81_${file.name}_${file.size}_chunk_`;
+
+        totalPlannedChunks = chunks.length;
+        totalCompletedChunks = 0;
+        updateMultiStreamStatus();
+
+        let activeIndex = 0;
+        const worker = async () => {
+          while (activeIndex < chunks.length) {
+            if (abortController.signal.aborted) break;
+            const idx = activeIndex++;
+            const c = chunks[idx];
+            const cacheKey = cachePrefix + idx;
+
+            if (S.cache[cacheKey]) {
+              results[idx] = S.cache[cacheKey];
+              totalCompletedChunks++;
+              glog(`Кусок #${idx + 1} (${mmss(c.startSec)}–${mmss(c.endSec)}) взят из кэша.`);
+              updateMultiStreamStatus();
+              continue;
+            }
+
+            try {
+              const res = await transcribeChunkResilient(c, model, think, fallback, abortController.signal);
+              const glued = joinBrokenLines(res.rawSub).text;
+              const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec, c.duration);
+              const resultText = shifted.join('\n');
+
+              results[idx] = resultText;
+              S.cache[cacheKey] = resultText;
+              try {
+                localStorage.setItem('af81_cache', JSON.stringify(S.cache));
+              } catch (e) {}
+
+              totalCompletedChunks++;
+              glog(`Кусок #${idx + 1} готов: ${shifted.length} строк · ключ #${res.keyUsed} · [${res.modelUsed}]`);
+              updateMultiStreamStatus();
+            } catch (err) {
+              glog(`Кусок #${idx + 1}: СБОЙ (${err.message})`, 'err');
+            }
+          }
+        };
+
+        const pool = [];
+        for (let i = 0; i < Math.min(par, chunks.length); i++) pool.push(worker());
+        await Promise.all(pool);
+
+        if (!abortController.signal.aborted) {
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.1 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fr = fixAss(fullRaw, { smart: true, sort: true, trim: true, dedup: true, maxDur: 5, splitSentences: true, applyCustomStyles: true });
+          
+          qItem.resultText = fr.text;
+          qItem.status = 'done';
+          renderBatchQueue();
+
+          S.genResult = fr.text;
+          showNumbered(document.getElementById('gOut'), S.genResult);
+
+          glog(`— [${qIdx + 1}/${S.batchQueue.length}] Фиксer: строк: ${fr.log[0]?.replace('строк: ','') || 0}`);
+          glog(cntLine(fr.cnt));
+
+          document.getElementById('btnDlGen').disabled = false;
+          document.getElementById('btnDlGenSrt').disabled = false;
+          document.getElementById('btnCopyGen').disabled = false;
+
+          if (autoDl) {
+            if (saveFormat === 'srt' || saveFormat === 'both') {
+              await saveSubtitleFile(outName, assToSrt(fr.text), 'srt');
+            }
+            if (saveFormat === 'ass' || saveFormat === 'both') {
+              await saveSubtitleFile(outName, fr.text, 'ass');
+            }
+          }
+
+          // Очистка памяти между сериями и пауза для сборщика мусора
+          results.length = 0;
+          await sleep(600);
+        }
+      }
+
+      if (!abortController.signal.aborted) {
+        setStatus('Вся очередь успешно завершена!');
+        glog('=== ВСЯ ОЧЕРЕДЬ ФАЙЛОВ УСПЕШНО ОБРАБОТАНА! ===');
+      }
+    } catch (e) {
+      glog('Очередь прервана: ' + e.message, 'err');
+      setStatus('Ошибка');
+    } finally {
+      isQueueRunning = false;
+      stopKeepAlive();
+      if (btnStart) btnStart.disabled = false;
+      if (btnStop) btnStop.disabled = true;
+    }
+  });
+
+  document.getElementById('btnStopGen')?.addEventListener('click', () => {
+    if (abortController) abortController.abort();
+    isQueueRunning = false;
+    stopKeepAlive();
+    glog('Очередь остановлена пользователем.', 'warn');
+    setStatus('Остановлено');
+  });
+
+  document.getElementById('btnDlGenSrt')?.addEventListener('click', () => {
+    const sNameInput = document.getElementById('gSingleOutName');
+    const name = sNameInput && sNameInput.value.trim() ? sNameInput.value.trim() : 'subtitles';
+    saveSubtitleFile(name, assToSrt(S.genResult), 'srt');
+  });
+
+  document.getElementById('btnDlGen')?.addEventListener('click', () => {
+    const sNameInput = document.getElementById('gSingleOutName');
+    const name = sNameInput && sNameInput.value.trim() ? sNameInput.value.trim() : 'subtitles';
+    saveSubtitleFile(name, S.genResult, 'ass');
+  });
+
+  document.getElementById('btnCopyGen')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(S.genResult).then(() => glog('Сгенерированный субтитр скопирован в буфер!'));
+  });
+
+  // Фиксер субтитров (БЛОК 3)
+  document.getElementById('fxFile')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const fxNameInput = document.getElementById('fxOutName');
+    if (fxNameInput) {
+      const baseClean = file.name.replace(/\.[^/.]+$/, '').trim();
+      fxNameInput.value = baseClean + ' (исправлено)';
+    }
+
+    const rd = new FileReader();
+    rd.onload = () => {
+      S.fixSource = rd.result;
+      glog(`Файл загружен: «${file.name}» (${Math.round(file.size / 1024)} КБ)`);
+    };
+    rd.readAsText(file);
+  });
+
+  document.getElementById('btnClearPaste')?.addEventListener('click', () => {
+    const p = document.getElementById('fxPaste');
+    if (p) p.value = '';
+    S.fixSource = '';
+    showNumbered(document.getElementById('fxOut'), '');
+  });
+
+  document.getElementById('btnRunFix')?.addEventListener('click', () => {
+    const pasted = document.getElementById('fxPaste')?.value || '';
+    const src = pasted.trim() || S.fixSource;
+    if (!src) return alert('Вставьте субтитры или выберите файл!');
+
+    const fr = fixAss(src, {
+      smart: document.getElementById('fxSmart')?.checked,
+      sort: document.getElementById('fxSort')?.checked,
+      trim: document.getElementById('fxTrim')?.checked,
+      dedup: document.getElementById('fxDedup')?.checked,
+      splitSentences: document.getElementById('fxSplitSentences')?.checked,
+      applyCustomStyles: document.getElementById('fxApplyCustomStyles')?.checked,
+      maxDur: parseFloat(document.getElementById('fxMax')?.value) || 5
+    });
+
+    S.fixResult = fr.text;
+    showNumbered(document.getElementById('fxOut'), fr.text);
+    glog('— Фиксер: ' + fr.log.join(', '));
+    glog(cntLine(fr.cnt));
+
+    document.getElementById('btnDlFixedSrt').disabled = false;
+    document.getElementById('btnDlFixed').disabled = false;
+    document.getElementById('btnCopyFixed').disabled = false;
+  });
+
+  document.getElementById('btnDlFixedSrt')?.addEventListener('click', () => {
+    const fxNameInput = document.getElementById('fxOutName');
+    const name = fxNameInput && fxNameInput.value.trim() ? fxNameInput.value.trim() : 'fixed-subtitles';
+    saveSubtitleFile(name, assToSrt(S.fixResult), 'srt');
+  });
+
+  document.getElementById('btnDlFixed')?.addEventListener('click', () => {
+    const fxNameInput = document.getElementById('fxOutName');
+    const name = fxNameInput && fxNameInput.value.trim() ? fxNameInput.value.trim() : 'fixed-subtitles';
+    saveSubtitleFile(name, S.fixResult, 'ass');
+  });
+
+  document.getElementById('btnCopyFixed')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
+  });
+
+  glog('ASS & SRT Fixer v8.1 Pro готов к работе. PIN-защита активна.');
+});
+</script>
+</body>
+</html>

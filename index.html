@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v8.3 Pro</title>
+<title>ASS & SRT Fixer v8.4 Pro</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -171,6 +171,7 @@
   .btn-pri:hover { filter: brightness(1.1); }
   .btn-success { background: #059669; border-color: #059669; color: #fff; }
   .btn-danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+  .btn-warning { background: #d97706; border-color: #d97706; color: #fff; }
   .btn-mini { padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; }
 
   .chk { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; }
@@ -353,7 +354,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v8.3 Pro</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v8.4 Pro</span></h1>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
       <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
@@ -365,27 +366,51 @@
   </header>
 
   <div class="grid-layout">
-    <!-- БЛОК 1: Google AI Keys -->
-    <div class="card">
-      <h2>1 · Ключи Google AI (Честный Round-Robin)</h2>
-      <div>
-        <label for="gKeyInput">Вставьте список ключей (каждый с новой строки или через пробел):</label>
-        <textarea id="gKeyInput" placeholder="AQ.Ab8RN...&#10;AIzaSy..."></textarea>
-        <div class="row" style="margin-top: 6px;">
-          <button class="btn btn-pri" id="btnAddKey" type="button" onclick="handleAddKeyClick()">+ Добавить ключи в пул</button>
+    <!-- ЛЕВАЯ КОЛОНКА (Ключи + Панель активных потоков на свободном месте) -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <!-- БЛОК 1: Google AI Keys -->
+      <div class="card">
+        <h2>1 · Ключи Google AI (Честный Round-Robin)</h2>
+        <div>
+          <label for="gKeyInput">Вставьте список ключей (каждый с новой строки или через пробел):</label>
+          <textarea id="gKeyInput" placeholder="AQ.Ab8RN...&#10;AIzaSy..."></textarea>
+          <div class="row" style="margin-top: 6px;">
+            <button class="btn btn-pri" id="btnAddKey" type="button" onclick="handleAddKeyClick()">+ Добавить ключи в пул</button>
+          </div>
+        </div>
+        <div>
+          <label>Состояние всех ключей в пуле:</label>
+          <div class="keys-list" id="keysList"></div>
+        </div>
+        <div class="row">
+          <button class="btn btn-danger" id="btnClearKeys" type="button">Удалить все</button>
+          <button class="btn" id="btnResetStats" type="button">Сбросить счетчик дня</button>
         </div>
       </div>
-      <div>
-        <label>Состояние всех ключей в пуле:</label>
-        <div class="keys-list" id="keysList"></div>
-      </div>
-      <div class="row">
-        <button class="btn btn-danger" id="btnClearKeys" type="button">Удалить все</button>
-        <button class="btn" id="btnResetStats" type="button">Сбросить счетчик дня</button>
+
+      <!-- НОВЫЙ БЛОК: Управление потоками, таймаутом и сброс кусков (в обведенном месте) -->
+      <div class="card" id="activeStreamsCard">
+        <h2>⚡ Активные потоки & Таймаут</h2>
+        <div class="row" style="align-items:center; margin-bottom:4px;">
+          <label class="chk" style="flex:1;">
+            <input type="checkbox" id="chkAutoTimeout" checked>
+            Авто-таймаут зависания:
+          </label>
+          <div style="flex:0 0 100px;">
+            <input type="number" id="inputTimeoutSec" min="60" max="3600" value="700" style="padding:4px 8px;" title="Секунд до сброса зависшего запроса">
+          </div>
+          <span style="font-size:0.8rem; color:var(--text-muted); flex:0 auto;">сек</span>
+        </div>
+        <div>
+          <label>Куски в обработке (можно сбросить любой зависший кусок без поломки очереди):</label>
+          <div id="activeStreamsList" class="keys-list" style="max-height:170px;">
+            <div style="color:var(--text-muted); font-size:0.8rem; padding:6px;">Нет активных потоков</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- БЛОК 2: Генерация & Очередь файлов -->
+    <!-- ПРАВАЯ КОЛОНКА (БЛОК 2: Генерация & Очередь файлов) -->
     <div class="card">
       <h2>2 · Настройки генерации & Очередь файлов</h2>
       <div>
@@ -673,7 +698,7 @@ function checkAuthPin() {
   const val = input ? input.value.trim() : '';
   
   if (btoa(val) === AUTH_TOKEN) {
-    localStorage.setItem('af83_auth_unlocked', 'true');
+    localStorage.setItem('af84_auth_unlocked', 'true');
     unlockApp();
     glog('Авторизация успешна. Устройство запомнено.');
   } else {
@@ -709,7 +734,7 @@ function handleFormatChange() {
 }
 
 /* =========================================================================
-   ЯДРО И СИСТЕМНЫЙ ПРОМПТ v8.3 PRO
+   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И РЕЕСТР АКТИВНЫХ ПОТОКОВ
    ========================================================================= */
 
 const RES_W = 1920;
@@ -720,6 +745,7 @@ const keyCooldowns = new Map();
 let keyRoundRobinIndex = 0;
 
 const activeWorkersProgress = new Map();
+const activeChunkWorkers = new Map(); // Карта активных контроллеров для ручного и авто-сброса
 let totalPlannedChunks = 0;
 let totalCompletedChunks = 0;
 
@@ -913,7 +939,10 @@ function setStatus(t) {
   if (el) el.textContent = t;
 }
 
+/* ОБНОВЛЕНИЕ СТАТУСА И ИНТЕРАКТИВНОЙ ПАНЕЛИ ПОТОКОВ */
 function updateMultiStreamStatus() {
+  renderActiveStreamsPanel();
+
   if (activeWorkersProgress.size === 0) {
     if (totalPlannedChunks > 0 && totalCompletedChunks === totalPlannedChunks) {
       setStatus(`Готово: ${totalCompletedChunks} / ${totalPlannedChunks}`);
@@ -926,6 +955,49 @@ function updateMultiStreamStatus() {
   });
   setStatus(`В работе: [ ${details.join(' | ')} ] · Кусков: ${totalCompletedChunks} / ${totalPlannedChunks}`);
 }
+
+/* ОТРИСОВКА СПИСКА АКТИВНЫХ КУСКОВ С КНОПКАМИ СБРОСА */
+function renderActiveStreamsPanel() {
+  const container = document.getElementById('activeStreamsList');
+  if (!container) return;
+
+  if (activeChunkWorkers.size === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; padding:6px;">Нет активных потоков (ожидание)</div>';
+    return;
+  }
+
+  let html = '';
+  activeChunkWorkers.forEach((val, cNum) => {
+    const elapsed = Math.round((Date.now() - val.startTime) / 1000);
+    const timeColor = elapsed >= 700 ? 'var(--accent-danger)' : (elapsed >= 300 ? 'var(--accent-warning)' : 'var(--accent-primary)');
+
+    html += `
+      <div class="key-item" style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px;">
+        <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+          <span style="font-weight:700; font-size:0.82rem;">Кусок #${cNum} <b style="color:${timeColor};">(${elapsed}с)</b></span>
+          <span style="font-size:0.72rem; color:var(--text-muted); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${val.keyMasked} · [${val.model}]</span>
+        </div>
+        <button class="btn btn-mini btn-danger" onclick="restartChunkManually(${cNum})" title="Сбросить этот зависший кусок прямо сейчас и повторить с новым ключом">
+          🔄 Сброс
+        </button>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+/* ФУНКЦИЯ РУЧНОГО СБРОСА КОНКРЕТНОГО КУСКА */
+window.restartChunkManually = function(chunkNum) {
+  const item = activeChunkWorkers.get(chunkNum);
+  if (!item) {
+    glog(`Кусок #${chunkNum} не найден или уже завершился.`, 'warn');
+    return;
+  }
+  glog(`Ручной сброс куска #${chunkNum} пользователем. Прерываю зависший сокет...`, 'warn');
+  if (item.abort) {
+    item.abort('MANUAL_RESTART');
+  }
+};
 
 async function startKeepAlive() {
   const allow = document.getElementById('gKeepAlive')?.checked;
@@ -1184,11 +1256,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('Починено ASS Fixer v8.3 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
+    return { text: assHeader('Починено ASS Fixer v8.4 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('Починено ASS Fixer v8.3 Pro').replace(/\n+$/, '')
+    ? assHeader('Починено ASS Fixer v8.4 Pro').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1336,7 +1408,7 @@ function fixAss(text, opts) {
 
 function loadSavedStyles() {
   try {
-    const saved = localStorage.getItem('af83_user_styles');
+    const saved = localStorage.getItem('af84_user_styles');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.streamer && parsed.anime) {
@@ -1363,7 +1435,7 @@ function saveUserStyles() {
   };
 
   try {
-    localStorage.setItem('af83_user_styles', JSON.stringify(UserStyles));
+    localStorage.setItem('af84_user_styles', JSON.stringify(UserStyles));
   } catch (e) {}
 
   closeStyleModal();
@@ -1546,7 +1618,7 @@ function cleanupStorageQuota() {
     const oldKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('af') && !k.startsWith('af83')) {
+      if (k && k.startsWith('af') && !k.startsWith('af84')) {
         oldKeys.push(k);
       }
     }
@@ -1556,13 +1628,13 @@ function cleanupStorageQuota() {
 
 function saveKeys() {
   try {
-    localStorage.setItem('af83_keys', JSON.stringify(S.keys));
-    localStorage.setItem('af83_stats', JSON.stringify(S.stats));
+    localStorage.setItem('af84_keys', JSON.stringify(S.keys));
+    localStorage.setItem('af84_stats', JSON.stringify(S.stats));
   } catch (e) {
     cleanupStorageQuota();
     try {
-      localStorage.setItem('af83_keys', JSON.stringify(S.keys));
-      localStorage.setItem('af83_stats', JSON.stringify(S.stats));
+      localStorage.setItem('af84_keys', JSON.stringify(S.keys));
+      localStorage.setItem('af84_stats', JSON.stringify(S.stats));
     } catch (e2) {}
   }
   renderKeys();
@@ -1879,6 +1951,7 @@ function f32ToWavBlob(f32, sr) {
   return new Blob([ab], { type: 'audio/wav' });
 }
 
+/* ЗАПРОС К GEMINI С АВТО-ТАЙМАУТОМ И ПОДДЕРЖКОЙ РУЧНОГО СБРОСА */
 async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback, mainSignal) {
   const b64Promise = new Promise(r => {
     const reader = new FileReader();
@@ -1905,7 +1978,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
     if (deadModels.has(currentModel)) continue;
 
     let attempts = 0;
-    const maxAttemptsForThisModel = (mIdx === 0) ? 2 : 1;
+    const maxAttemptsForThisModel = (mIdx === 0) ? 3 : 2;
 
     while (attempts < maxAttemptsForThisModel) {
       if (mainSignal.aborted) throw new Error('Прервано пользователем');
@@ -1916,6 +1989,16 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
       glog(`Кусок #${chunk.index + 1} (${mmss(chunk.startSec)}–${mmss(chunk.endSec)}) → ключ #${keyObj.index} (${keyObj.masked}) · [${currentModel}]...`);
 
       const t0 = Date.now();
+      const chunkController = new AbortController();
+
+      // Регистрируем в реестре активных потоков для отображения и ручного сброса
+      activeChunkWorkers.set(chunk.index + 1, {
+        abort: (reason) => chunkController.abort(reason),
+        keyMasked: keyObj.masked,
+        model: currentModel,
+        startTime: t0
+      });
+
       activeWorkersProgress.set(chunk.index + 1, { sec: 0, model: currentModel });
       updateMultiStreamStatus();
 
@@ -1924,6 +2007,20 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
         activeWorkersProgress.set(chunk.index + 1, { sec: elapsedSec, model: currentModel });
         updateMultiStreamStatus();
       }, 1000);
+
+      // Логика авто-таймаута (700 сек по умолчанию, можно отключить)
+      let timeoutTimer = null;
+      const isTimeoutOn = document.getElementById('chkAutoTimeout')?.checked ?? true;
+      const timeoutSec = parseInt(document.getElementById('inputTimeoutSec')?.value, 10) || 700;
+
+      if (isTimeoutOn && timeoutSec > 0) {
+        timeoutTimer = setTimeout(() => {
+          chunkController.abort('TIMEOUT');
+        }, timeoutSec * 1000);
+      }
+
+      const onMainAbort = () => chunkController.abort('Main aborted');
+      mainSignal.addEventListener('abort', onMainAbort);
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(keyObj.key)}`;
       
@@ -1954,10 +2051,13 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
             'x-goog-api-key': keyObj.key
           },
           body: JSON.stringify(payload),
-          signal: mainSignal
+          signal: chunkController.signal
         });
 
+        if (timeoutTimer) clearTimeout(timeoutTimer);
         clearInterval(progressTimer);
+        mainSignal.removeEventListener('abort', onMainAbort);
+        activeChunkWorkers.delete(chunk.index + 1);
         activeWorkersProgress.delete(chunk.index + 1);
         updateMultiStreamStatus();
 
@@ -1988,14 +2088,27 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
 
         return { rawSub, keyUsed: keyObj.index, modelUsed: currentModel };
       } catch (err) {
+        if (timeoutTimer) clearTimeout(timeoutTimer);
         clearInterval(progressTimer);
+        mainSignal.removeEventListener('abort', onMainAbort);
+        activeChunkWorkers.delete(chunk.index + 1);
         activeWorkersProgress.delete(chunk.index + 1);
         updateMultiStreamStatus();
-        
-        putKeyOnCooldown(keyObj.key, 40);
+
+        putKeyOnCooldown(keyObj.key, 60);
         releaseKey(keyObj.key);
 
         if (mainSignal.aborted) throw new Error('Прервано пользователем');
+
+        const abortReason = chunkController.signal.reason;
+
+        // Если сработал авто-таймаут или ручной сброс конкретного куска
+        if (chunkController.signal.aborted && (abortReason === 'TIMEOUT' || abortReason === 'MANUAL_RESTART')) {
+          const label = (abortReason === 'TIMEOUT') ? `Авто-таймаут (${timeoutSec}с)` : 'Ручной сброс';
+          glog(`Кусок #${chunk.index + 1}: [${label}] — зависший запрос сброшен! Ротация ключа и мгновенный повтор...`, 'warn');
+          await sleep(1000);
+          continue; // Повторяем этот же кусок с новым ключом, не ломая очередь
+        }
 
         const status = err.status || 0;
         lastError = err.text || err.message || `HTTP ${status}`;
@@ -2009,7 +2122,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
         attempts++;
 
         if (status === 503 || status === 500 || status === 502) {
-          glog(`Кусок #${chunk.index + 1}: [${currentModel}] перегружена (503). Смена ключа...`, 'warn');
+          glog(`Кусок #${chunk.index + 1}: [${currentModel}] перегружена (${status}). Смена ключа...`, 'warn');
           await sleep(2000);
           continue;
         }
@@ -2020,7 +2133,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
           continue;
         }
 
-        glog(`Кусок #${chunk.index + 1}: Ошибка [${currentModel}] (${status === 0 ? 'Сеть' : 'HTTP ' + status}). Повтор...`, 'warn');
+        glog(`Кусок #${chunk.index + 1}: Ошибка [${currentModel}] (${status === 0 ? 'Сеть / сброс' : 'HTTP ' + status}). Повтор...`, 'warn');
         await sleep(2000);
       }
     }
@@ -2114,11 +2227,11 @@ document.addEventListener('DOMContentLoaded', () => {
   cleanupStorageQuota();
   loadSavedStyles();
 
-  if (localStorage.getItem('af83_auth_unlocked') === 'true') {
+  if (localStorage.getItem('af84_auth_unlocked') === 'true') {
     unlockApp();
   }
 
-  const allPrefixes = ['af83', 'af82', 'af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
+  const allPrefixes = ['af84', 'af83', 'af82', 'af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
   
   for (const pfx of allPrefixes) {
     try {
@@ -2243,7 +2356,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.innerHTML = '';
   });
 
-  // Запуск генерации (теперь уважает галочки и макс. сек из Блока 3)
   document.getElementById('btnStartGen')?.addEventListener('click', async () => {
     if (!S.keys.length) return alert('Сначала добавьте хотя бы один ключ в блоке 1!');
     if (!S.batchQueue.length) return alert('Выберите аудиофайл(ы) в блоке 2!');
@@ -2270,7 +2382,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const autoDl = document.getElementById('gAutoDownload')?.checked;
     const saveFormat = document.getElementById('gFormatSelect')?.value || 'srt';
 
-    // Считывание пользовательских настроек из Блока 3
     const maxDurSetting = parseFloat(document.getElementById('fxMax')?.value) || 10;
     const useSmart = document.getElementById('fxSmart')?.checked ?? true;
     const useSort = document.getElementById('fxSort')?.checked ?? true;
@@ -2309,7 +2420,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const chunks = await decodeAudioAndResample16k(file, chunkMin);
         const results = new Array(chunks.length);
-        const cachePrefix = `af83_${file.name}_${file.size}_chunk_`;
+        const cachePrefix = `af84_${file.name}_${file.size}_chunk_`;
 
         totalPlannedChunks = chunks.length;
         totalCompletedChunks = 0;
@@ -2340,7 +2451,7 @@ document.addEventListener('DOMContentLoaded', () => {
               results[idx] = resultText;
               S.cache[cacheKey] = resultText;
               try {
-                localStorage.setItem('af83_cache', JSON.stringify(S.cache));
+                localStorage.setItem('af84_cache', JSON.stringify(S.cache));
               } catch (e) {}
 
               totalCompletedChunks++;
@@ -2357,9 +2468,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await Promise.all(pool);
 
         if (!abortController.signal.aborted) {
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.3 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.4 Pro') + '\n' + results.filter(Boolean).join('\n');
           
-          // Применяем точные пользовательские параметры из Блока 3
           const fr = fixAss(fullRaw, { 
             smart: useSmart, 
             sort: useSort, 
@@ -2504,7 +2614,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v8.3 Pro готов. Кусок: 7 мин, лимит: 10 сек, авто-синхронизация активны.');
+  glog('ASS & SRT Fixer v8.4 Pro готов. Авто-таймаут 700с и панель ручного сброса кусков активны.');
 });
 </script>
 </body>

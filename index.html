@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v8.5 Pro</title>
+<title>ASS & SRT Fixer v8.6 Pro</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -354,7 +354,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v8.5 Pro</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v8.6 Pro</span></h1>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
       <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
@@ -480,8 +480,8 @@
       </div>
       <div class="row">
         <div>
-          <label for="gChunk">Кусок, мин (1–20 мин, реком: 7):</label>
-          <input type="number" id="gChunk" min="1" max="20" step="0.5" value="7">
+          <label for="gChunk">Кусок, мин (1–20 мин, реком: 4):</label>
+          <input type="number" id="gChunk" min="1" max="20" step="0.5" value="4">
         </div>
         <div>
           <label for="gPar">Потоков (1–2, оптим: 2 для скорости):</label>
@@ -544,10 +544,13 @@
         <label class="chk"><input type="checkbox" id="fxDedup" checked> Дубли</label>
         <label class="chk"><input type="checkbox" id="fxSplitSentences" checked> 1 предложение на строку</label>
       </div>
-      <div class="row">
-        <div class="narrow">
-          <label for="fxMax">Макс. сек:</label>
-          <input type="number" id="fxMax" min="1" max="30" value="6">
+      <div class="row" style="align-items:flex-end;">
+        <div style="flex:0 0 170px;">
+          <label class="chk" style="margin-bottom:4px;">
+            <input type="checkbox" id="fxLimitMaxDur">
+            Ограничить макс. сек:
+          </label>
+          <input type="number" id="fxMax" min="1" max="30" value="6" style="opacity:0.45;" disabled title="Включите галочку выше, чтобы принудительно обрезать длину реплики">
         </div>
         <button class="btn btn-pri" id="btnRunFix" type="button">Починить вручную</button>
       </div>
@@ -698,7 +701,7 @@ function checkAuthPin() {
   const val = input ? input.value.trim() : '';
   
   if (btoa(val) === AUTH_TOKEN) {
-    localStorage.setItem('af85_auth_unlocked', 'true');
+    localStorage.setItem('af86_auth_unlocked', 'true');
     unlockApp();
     glog('Авторизация успешна. Устройство запомнено.');
   } else {
@@ -734,7 +737,7 @@ function handleFormatChange() {
 }
 
 /* =========================================================================
-   ЯДРО И СИСТЕМНЫЙ ПРОМПТ v8.5 PRO (БЕЗ ПУТАЮЩИХ ЦИФР, ЧИСТАЯ АКУСТИКА)
+   ЯДРО И СИСТЕМНЫЙ ПРОМПТ v8.6 PRO
    ========================================================================= */
 
 const RES_W = 1920;
@@ -890,7 +893,6 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
-/* ЧИСТЫЙ СИСТЕМНЫЙ ПРОМПТ БЕЗ ПУТАЮЩИХ ЦИФР */
 const SYSTEM_PROMPT = `Ты — профессиональный переводчик и субтитровщик видео-реакций.
 Задача: Полный дословный перевод всей звучащей речи в формат субтитров ASS/SRT.
 
@@ -1169,7 +1171,7 @@ function joinBrokenLines(text) {
 }
 
 function shiftLines(lines, off, chunkDur) {
-  const maxChunkPlaus = (chunkDur || 420) + 45;
+  const maxChunkPlaus = (chunkDur || 240) + 45;
   const parsed = [];
 
   for (let i = 0; i < (lines || []).length; i++) {
@@ -1202,7 +1204,7 @@ function shiftLines(lines, off, chunkDur) {
 
       if (e == null || e <= s) {
         const words = cur.text.split(/\s+/).length;
-        e = s + Math.max(1.4, Math.min(6.0, words * 0.35 + 1.0));
+        e = s + Math.max(1.4, Math.min(8.0, words * 0.35 + 1.1));
       }
 
       out.push('Dialogue: 0,' + fmtT(s + off) + ',' + fmtT(e + off) + ',' + cur.style + ',' + cur.name + ',0,0,0,,' + cur.text);
@@ -1220,9 +1222,17 @@ function cntLine(c) {
     + ' · ✖ битых: ' + (c.broken || 0);
 }
 
-/* ФИКСЕР С УМНОЙ ПРИВЯЗКОЙ К ДЛИНЕ ФРАЗЫ */
 function fixAss(text, opts) {
-  const o = Object.assign({ smart: true, sort: true, trim: true, dedup: true, maxDur: 6, splitSentences: true, applyCustomStyles: false }, opts || {});
+  const o = Object.assign({ 
+    smart: true, 
+    sort: true, 
+    trim: true, 
+    dedup: true, 
+    limitMaxDur: false, // ПО УМОЛЧАНИЮ ВЫКЛЮЧЕНО
+    maxDur: 6, 
+    splitSentences: true, 
+    applyCustomStyles: false 
+  }, opts || {});
   
   let norm = String(text || '').replace(/\r\n?/g, '\n');
   if (!norm.includes('Dialogue:') && norm.includes('-->')) {
@@ -1241,11 +1251,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('Починено ASS Fixer v8.5 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
+    return { text: assHeader('Починено ASS Fixer v8.6 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('Починено ASS Fixer v8.5 Pro').replace(/\n+$/, '')
+    ? assHeader('Починено ASS Fixer v8.6 Pro').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1289,13 +1299,12 @@ function fixAss(text, opts) {
 
     if (e == null || e <= s) {
       const words = p.text.split(/\s+/).length;
-      e = s + Math.max(1.4, Math.min(maxDur, words * 0.35 + 1.1));
+      e = s + Math.max(1.4, words * 0.35 + 1.1);
       cnt.lifted++;
     }
 
     const targetTrack = tracks[p.style] || tracks.Anime;
 
-    // Сплиттер делит длинные составные фразы
     if (o.splitSentences && (e - s > 4.0)) {
       const sentences = p.text.split(/(?<=[.!?…])\s*(?=[А-ЯA-Z0-9«"A-Z])/).map(t => t.trim()).filter(Boolean);
       if (sentences.length > 1) {
@@ -1334,8 +1343,8 @@ function fixAss(text, opts) {
       const cur = list[i];
       const nx = list[i + 1];
 
-      // Умная обрезка сверхдлинных фраз по количеству слов
-      if (cur.e - cur.s > maxDur) {
+      // Ограничение максимальной длины срабатывает ТОЛЬКО ЕСЛИ ВКЛЮЧЕН ТУМБЛЕР!
+      if (o.limitMaxDur && (cur.e - cur.s > maxDur)) {
         const words = cur.p.text.split(/\s+/).length;
         const saneDur = Math.max(1.8, Math.min(maxDur, words * 0.35 + 1.2));
         if (nx && nx.s > cur.s && nx.s - cur.s <= maxDur) {
@@ -1346,7 +1355,7 @@ function fixAss(text, opts) {
         cnt.endcut++;
       }
 
-      // Не склеиваем встык, если есть реальная пауза!
+      // Не склеиваем встык через паузы
       if (nx && cur.e > nx.s) {
         cur.e = Math.max(cur.s + 1.2, nx.s - 0.05);
         cnt.endcut++;
@@ -1402,7 +1411,7 @@ function fixAss(text, opts) {
 
 function loadSavedStyles() {
   try {
-    const saved = localStorage.getItem('af85_user_styles');
+    const saved = localStorage.getItem('af86_user_styles');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.streamer && parsed.anime) {
@@ -1429,7 +1438,7 @@ function saveUserStyles() {
   };
 
   try {
-    localStorage.setItem('af85_user_styles', JSON.stringify(UserStyles));
+    localStorage.setItem('af86_user_styles', JSON.stringify(UserStyles));
   } catch (e) {}
 
   closeStyleModal();
@@ -1612,7 +1621,7 @@ function cleanupStorageQuota() {
     const oldKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('af') && !k.startsWith('af85')) {
+      if (k && k.startsWith('af') && !k.startsWith('af86')) {
         oldKeys.push(k);
       }
     }
@@ -1622,13 +1631,13 @@ function cleanupStorageQuota() {
 
 function saveKeys() {
   try {
-    localStorage.setItem('af85_keys', JSON.stringify(S.keys));
-    localStorage.setItem('af85_stats', JSON.stringify(S.stats));
+    localStorage.setItem('af86_keys', JSON.stringify(S.keys));
+    localStorage.setItem('af86_stats', JSON.stringify(S.stats));
   } catch (e) {
     cleanupStorageQuota();
     try {
-      localStorage.setItem('af85_keys', JSON.stringify(S.keys));
-      localStorage.setItem('af85_stats', JSON.stringify(S.stats));
+      localStorage.setItem('af86_keys', JSON.stringify(S.keys));
+      localStorage.setItem('af86_stats', JSON.stringify(S.stats));
     } catch (e2) {}
   }
   renderKeys();
@@ -1815,7 +1824,7 @@ async function fetchAvailableModels() {
 }
 
 function planChunksBySilence(f32, sr, minMinutes) {
-  const chunkSec = Math.max(60, Math.min(1200, (Number(minMinutes) || 7) * 60));
+  const chunkSec = Math.max(60, Math.min(1200, (Number(minMinutes) || 4) * 60));
   const frame = 0.5;
   const fl = Math.max(1, Math.round(frame * sr));
   const nf = Math.max(1, Math.ceil(f32.length / fl));
@@ -2210,18 +2219,18 @@ function applyNamingPattern() {
 }
 
 /* =========================================================================
-   ИНИЦИАЛИЗАЦИЯ И ОБРАБОТЧИКИ СОБЫТИЙ
+   ИНИЦИАЛИЗАЦИЯ И ОБРАБОТЧИКИ СОБЫТИЙ v8.6 PRO
    ========================================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
   cleanupStorageQuota();
   loadSavedStyles();
 
-  if (localStorage.getItem('af85_auth_unlocked') === 'true') {
+  if (localStorage.getItem('af86_auth_unlocked') === 'true') {
     unlockApp();
   }
 
-  const allPrefixes = ['af85', 'af84', 'af83', 'af82', 'af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
+  const allPrefixes = ['af86', 'af85', 'af84', 'af83', 'af82', 'af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
   
   for (const pfx of allPrefixes) {
     try {
@@ -2246,6 +2255,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('btnOpenStyleModal')?.addEventListener('click', openStyleModal);
+
+  // Слушатель для тумблера ограничения макс. сек
+  document.getElementById('fxLimitMaxDur')?.addEventListener('change', (e) => {
+    const inp = document.getElementById('fxMax');
+    if (inp) {
+      inp.disabled = !e.target.checked;
+      inp.style.opacity = e.target.checked ? '1' : '0.45';
+    }
+  });
 
   document.getElementById('btnPickFolder')?.addEventListener('click', async () => {
     if ('showDirectoryPicker' in window) {
@@ -2365,7 +2383,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    const chunkMin = Math.max(1, Math.min(20, parseFloat(document.getElementById('gChunk')?.value) || 7));
+    const chunkMin = Math.max(1, Math.min(20, parseFloat(document.getElementById('gChunk')?.value) || 4));
     const par = parseInt(document.getElementById('gPar')?.value, 10) || 2;
     const model = document.getElementById('gModelSelect')?.value || 'gemini-flash-latest';
     const think = document.getElementById('gThink')?.value || '';
@@ -2373,6 +2391,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const autoDl = document.getElementById('gAutoDownload')?.checked;
     const saveFormat = document.getElementById('gFormatSelect')?.value || 'srt';
 
+    const limitMaxDurSetting = document.getElementById('fxLimitMaxDur')?.checked ?? false;
     const maxDurSetting = parseFloat(document.getElementById('fxMax')?.value) || 6;
     const useSmart = document.getElementById('fxSmart')?.checked ?? true;
     const useSort = document.getElementById('fxSort')?.checked ?? true;
@@ -2411,7 +2430,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const chunks = await decodeAudioAndResample16k(file, chunkMin);
         const results = new Array(chunks.length);
-        const cachePrefix = `af85_${file.name}_${file.size}_chunk_`;
+        const cachePrefix = `af86_${file.name}_${file.size}_chunk_`;
 
         totalPlannedChunks = chunks.length;
         totalCompletedChunks = 0;
@@ -2442,7 +2461,7 @@ document.addEventListener('DOMContentLoaded', () => {
               results[idx] = resultText;
               S.cache[cacheKey] = resultText;
               try {
-                localStorage.setItem('af85_cache', JSON.stringify(S.cache));
+                localStorage.setItem('af86_cache', JSON.stringify(S.cache));
               } catch (e) {}
 
               totalCompletedChunks++;
@@ -2459,13 +2478,14 @@ document.addEventListener('DOMContentLoaded', () => {
         await Promise.all(pool);
 
         if (!abortController.signal.aborted) {
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.5 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.6 Pro') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             smart: useSmart, 
             sort: useSort, 
             trim: useTrim, 
             dedup: useDedup, 
+            limitMaxDur: limitMaxDurSetting,
             maxDur: maxDurSetting, 
             splitSentences: useSplit, 
             applyCustomStyles: useApplyStyles 
@@ -2576,6 +2596,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dedup: document.getElementById('fxDedup')?.checked,
       splitSentences: document.getElementById('fxSplitSentences')?.checked,
       applyCustomStyles: document.getElementById('fxApplyCustomStyles')?.checked,
+      limitMaxDur: document.getElementById('fxLimitMaxDur')?.checked ?? false,
       maxDur: parseFloat(document.getElementById('fxMax')?.value) || 6
     });
 
@@ -2605,7 +2626,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v8.5 Pro готов. Промпт очищен, лимит 6с активирован.');
+  glog('ASS & SRT Fixer v8.6 Pro готов. Кусок 4 мин, лимит секунд отключаемый.');
 });
 </script>
 </body>

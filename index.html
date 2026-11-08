@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v8.4 Pro</title>
+<title>ASS & SRT Fixer v8.5 Pro</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -354,7 +354,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v8.4 Pro</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v8.5 Pro</span></h1>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
       <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
@@ -366,7 +366,7 @@
   </header>
 
   <div class="grid-layout">
-    <!-- ЛЕВАЯ КОЛОНКА (Ключи + Панель активных потоков на свободном месте) -->
+    <!-- ЛЕВАЯ КОЛОНКА -->
     <div style="display:flex; flex-direction:column; gap:16px;">
       <!-- БЛОК 1: Google AI Keys -->
       <div class="card">
@@ -388,7 +388,7 @@
         </div>
       </div>
 
-      <!-- НОВЫЙ БЛОК: Управление потоками, таймаутом и сброс кусков (в обведенном месте) -->
+      <!-- БЛОК ТАЙМАУТА И РУЧНОГО СБРОСА КУСКОВ -->
       <div class="card" id="activeStreamsCard">
         <h2>⚡ Активные потоки & Таймаут</h2>
         <div class="row" style="align-items:center; margin-bottom:4px;">
@@ -410,7 +410,7 @@
       </div>
     </div>
 
-    <!-- ПРАВАЯ КОЛОНКА (БЛОК 2: Генерация & Очередь файлов) -->
+    <!-- ПРАВАЯ КОЛОНКА (БЛОК 2) -->
     <div class="card">
       <h2>2 · Настройки генерации & Очередь файлов</h2>
       <div>
@@ -518,7 +518,7 @@
   </div>
 
   <div class="grid-layout">
-    <!-- БЛОК 3: Настройки постобработки и ручной фиксер -->
+    <!-- БЛОК 3: Постобработка и ручной фиксер -->
     <div class="card">
       <h2>
         3 · Настройки обработки субтитров (для Gemini и ручной починки)
@@ -547,7 +547,7 @@
       <div class="row">
         <div class="narrow">
           <label for="fxMax">Макс. сек:</label>
-          <input type="number" id="fxMax" min="1" max="30" value="10">
+          <input type="number" id="fxMax" min="1" max="30" value="6">
         </div>
         <button class="btn btn-pri" id="btnRunFix" type="button">Починить вручную</button>
       </div>
@@ -698,7 +698,7 @@ function checkAuthPin() {
   const val = input ? input.value.trim() : '';
   
   if (btoa(val) === AUTH_TOKEN) {
-    localStorage.setItem('af84_auth_unlocked', 'true');
+    localStorage.setItem('af85_auth_unlocked', 'true');
     unlockApp();
     glog('Авторизация успешна. Устройство запомнено.');
   } else {
@@ -734,7 +734,7 @@ function handleFormatChange() {
 }
 
 /* =========================================================================
-   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И РЕЕСТР АКТИВНЫХ ПОТОКОВ
+   ЯДРО И СИСТЕМНЫЙ ПРОМПТ v8.5 PRO (БЕЗ ПУТАЮЩИХ ЦИФР, ЧИСТАЯ АКУСТИКА)
    ========================================================================= */
 
 const RES_W = 1920;
@@ -745,7 +745,7 @@ const keyCooldowns = new Map();
 let keyRoundRobinIndex = 0;
 
 const activeWorkersProgress = new Map();
-const activeChunkWorkers = new Map(); // Карта активных контроллеров для ручного и авто-сброса
+const activeChunkWorkers = new Map();
 let totalPlannedChunks = 0;
 let totalCompletedChunks = 0;
 
@@ -890,35 +890,22 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
-const SYSTEM_PROMPT = `Ты — элитный синхронный переводчик и укладчик субтитров к видео-реакциям.
-Твоя цель: Сформировать ПОЛНЫЕ, ДОСЛОВНЫЕ субтитры ASS с абсолютной точностью попадания в звук голоса.
+/* ЧИСТЫЙ СИСТЕМНЫЙ ПРОМПТ БЕЗ ПУТАЮЩИХ ЦИФР */
+const SYSTEM_PROMPT = `Ты — профессиональный переводчик и субтитровщик видео-реакций.
+Задача: Полный дословный перевод всей звучащей речи в формат субтитров ASS/SRT.
 
-ДВА ИСТОЧНИКА РЕЧИ:
-1. Английская речь стримера (микрофон) -> стиль "Streamer".
-2. Японская речь видео (аниме/сериал) -> стиль "Anime" (имена строго по Поливанову).
+ДОРОЖКИ:
+- Речь стримера (английский микрофон) -> стиль "Streamer".
+- Речь в видео/аниме (японский) -> стиль "Anime" (имена по Поливанову).
 
-ГЛАВНЫЕ ПРАВИЛА (СТРОЖАЙШЕ):
-1. 100% ДОСЛОВНОСТЬ И ПОЛНОТА РЕЧИ:
-   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО сокращать, обобщать, пересказывать своими словами или выбрасывать фразы!
-   - Переводи абсолютно все высказывания, междометия, шутки, детали и мысли.
-   - Если стример или персонаж говорит много и быстро — создавай последовательные строки Dialogue, но не вырезай ни единого слова!
-
-2. ЖИВЫЕ ПАУЗЫ И БОРЬБА СО СПЕШКОЙ ТАЙМИНГА:
-   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО склеивать реплики через паузы тишины!
-   - Если говорящий замолчал на 1, 2 или 5 секунд — время Start следующей строки обязано начинаться РОВНО тогда, когда голос СНОВА начал звучать в аудио, а НЕ сразу после предыдущей фразы! Субтитры не должны съедать тишину и спешить вперед.
-   - Длительность фразы (End) закрывается ровно на последнем произнесенном слоге.
-
-3. ОПЕНИНГИ И ПЕСНИ:
-   - Когда играет песня опенинга/эндинга, а стример молчит — не переводи песню.
-   - НО когда после песни возобновляется речь персонажей — таймкод этой первой речи должен учитывать прошедшие 1.5 минуты музыки и начинаться на РЕАЛЬНОЙ минуте аудио (например, 03:15, а не 01:45)!
-
-4. ПАРАЛЛЕЛЬНАЯ РЕЧЬ:
-   - Если стример комментирует поверх аниме одновременно — выдавай две отдельные строки с перекрывающимся таймингом.
-
-5. ОФОРМЛЕНИЕ И ПУНКТУАЦИЯ:
-   - Одно законченное предложение на строку Dialogue.
-   - Обязательный пробел после каждой запятой, точки, двоеточия (не "слово,слово", а "слово, слово").
-   - Формат вывода СТРОГО: Dialogue: 0,Start,End,Style,,0,0,0,,Русский перевод`;
+ПРАВИЛА ТАЙМИНГА И ПЕРЕВОДА:
+1. ДОСЛОВНОСТЬ: Переводи всю речь полностью, ничего не сокращая, не выбрасывая фразы и не сжимая смысл. Передавай все детали и шутки без купюр.
+2. ТОЧНОСТЬ ЗВУКА: Таймкод Start ставится ровно в момент, когда фраза начинает физически звучать в аудио. Таймкод End — ровно на затухании фразы.
+3. ПАУЗЫ И ТИШИНА: Если между репликами пауза, тишина или играет музыка — субтитры не должны гореть на экране. Не привязывай фразы к тишине и не склеивай тайминги встык через паузы.
+4. ОДНО ПРЕДЛОЖЕНИЕ НА СТРОКУ: Каждое законченное предложение выводи отдельной строкой Dialogue со своим индивидуальным точным таймингом.
+5. ОФОРМЛЕНИЕ: Обязательный пробел после каждой запятой и точки.
+6. ФОРМАТ ВЫВОДА СТРОГО:
+Dialogue: 0,Start,End,Style,,0,0,0,,Текст перевода на русском`;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -939,7 +926,6 @@ function setStatus(t) {
   if (el) el.textContent = t;
 }
 
-/* ОБНОВЛЕНИЕ СТАТУСА И ИНТЕРАКТИВНОЙ ПАНЕЛИ ПОТОКОВ */
 function updateMultiStreamStatus() {
   renderActiveStreamsPanel();
 
@@ -956,7 +942,6 @@ function updateMultiStreamStatus() {
   setStatus(`В работе: [ ${details.join(' | ')} ] · Кусков: ${totalCompletedChunks} / ${totalPlannedChunks}`);
 }
 
-/* ОТРИСОВКА СПИСКА АКТИВНЫХ КУСКОВ С КНОПКАМИ СБРОСА */
 function renderActiveStreamsPanel() {
   const container = document.getElementById('activeStreamsList');
   if (!container) return;
@@ -986,14 +971,13 @@ function renderActiveStreamsPanel() {
   container.innerHTML = html;
 }
 
-/* ФУНКЦИЯ РУЧНОГО СБРОСА КОНКРЕТНОГО КУСКА */
 window.restartChunkManually = function(chunkNum) {
   const item = activeChunkWorkers.get(chunkNum);
   if (!item) {
     glog(`Кусок #${chunkNum} не найден или уже завершился.`, 'warn');
     return;
   }
-  glog(`Ручной сброс куска #${chunkNum} пользователем. Прерываю зависший сокет...`, 'warn');
+  glog(`Ручной сброс куска #${chunkNum} пользователем. Прерываю сокет...`, 'warn');
   if (item.abort) {
     item.abort('MANUAL_RESTART');
   }
@@ -1218,7 +1202,7 @@ function shiftLines(lines, off, chunkDur) {
 
       if (e == null || e <= s) {
         const words = cur.text.split(/\s+/).length;
-        e = s + Math.max(1.4, Math.min(8.0, words * 0.32 + 0.9));
+        e = s + Math.max(1.4, Math.min(6.0, words * 0.35 + 1.0));
       }
 
       out.push('Dialogue: 0,' + fmtT(s + off) + ',' + fmtT(e + off) + ',' + cur.style + ',' + cur.name + ',0,0,0,,' + cur.text);
@@ -1236,15 +1220,16 @@ function cntLine(c) {
     + ' · ✖ битых: ' + (c.broken || 0);
 }
 
+/* ФИКСЕР С УМНОЙ ПРИВЯЗКОЙ К ДЛИНЕ ФРАЗЫ */
 function fixAss(text, opts) {
-  const o = Object.assign({ smart: true, sort: true, trim: true, dedup: true, maxDur: 10, splitSentences: true, applyCustomStyles: false }, opts || {});
+  const o = Object.assign({ smart: true, sort: true, trim: true, dedup: true, maxDur: 6, splitSentences: true, applyCustomStyles: false }, opts || {});
   
   let norm = String(text || '').replace(/\r\n?/g, '\n');
   if (!norm.includes('Dialogue:') && norm.includes('-->')) {
     norm = srtToAss(norm);
   }
 
-  const maxDur = (Number(o.maxDur) > 0) ? Number(o.maxDur) : 10;
+  const maxDur = (Number(o.maxDur) > 0) ? Number(o.maxDur) : 6;
   const cnt = { shift: 0, dedup: 0, lifted: 0, endcut: 0, approx: 0, broken: 0 };
   const src = norm.split('\n');
   
@@ -1256,11 +1241,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('Починено ASS Fixer v8.4 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
+    return { text: assHeader('Починено ASS Fixer v8.5 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('Починено ASS Fixer v8.4 Pro').replace(/\n+$/, '')
+    ? assHeader('Починено ASS Fixer v8.5 Pro').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1304,13 +1289,14 @@ function fixAss(text, opts) {
 
     if (e == null || e <= s) {
       const words = p.text.split(/\s+/).length;
-      e = s + Math.max(1.4, Math.min(maxDur, words * 0.32 + 0.9));
+      e = s + Math.max(1.4, Math.min(maxDur, words * 0.35 + 1.1));
       cnt.lifted++;
     }
 
     const targetTrack = tracks[p.style] || tracks.Anime;
 
-    if (o.splitSentences && (e - s > 4.5)) {
+    // Сплиттер делит длинные составные фразы
+    if (o.splitSentences && (e - s > 4.0)) {
       const sentences = p.text.split(/(?<=[.!?…])\s*(?=[А-ЯA-Z0-9«"A-Z])/).map(t => t.trim()).filter(Boolean);
       if (sentences.length > 1) {
         const totalChars = sentences.reduce((sum, cur) => sum + cur.length, 0);
@@ -1329,7 +1315,7 @@ function fixAss(text, opts) {
             approx: !!t1.approx,
             dead: false
           });
-          curS = curE + 0.1;
+          curS = curE + 0.05;
         }
         continue;
       }
@@ -1348,11 +1334,19 @@ function fixAss(text, opts) {
       const cur = list[i];
       const nx = list[i + 1];
 
+      // Умная обрезка сверхдлинных фраз по количеству слов
       if (cur.e - cur.s > maxDur) {
-        cur.e = cur.s + maxDur;
+        const words = cur.p.text.split(/\s+/).length;
+        const saneDur = Math.max(1.8, Math.min(maxDur, words * 0.35 + 1.2));
+        if (nx && nx.s > cur.s && nx.s - cur.s <= maxDur) {
+          cur.e = Math.min(cur.s + saneDur, nx.s - 0.05);
+        } else {
+          cur.e = cur.s + saneDur;
+        }
         cnt.endcut++;
       }
 
+      // Не склеиваем встык, если есть реальная пауза!
       if (nx && cur.e > nx.s) {
         cur.e = Math.max(cur.s + 1.2, nx.s - 0.05);
         cnt.endcut++;
@@ -1408,7 +1402,7 @@ function fixAss(text, opts) {
 
 function loadSavedStyles() {
   try {
-    const saved = localStorage.getItem('af84_user_styles');
+    const saved = localStorage.getItem('af85_user_styles');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.streamer && parsed.anime) {
@@ -1435,7 +1429,7 @@ function saveUserStyles() {
   };
 
   try {
-    localStorage.setItem('af84_user_styles', JSON.stringify(UserStyles));
+    localStorage.setItem('af85_user_styles', JSON.stringify(UserStyles));
   } catch (e) {}
 
   closeStyleModal();
@@ -1618,7 +1612,7 @@ function cleanupStorageQuota() {
     const oldKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('af') && !k.startsWith('af84')) {
+      if (k && k.startsWith('af') && !k.startsWith('af85')) {
         oldKeys.push(k);
       }
     }
@@ -1628,13 +1622,13 @@ function cleanupStorageQuota() {
 
 function saveKeys() {
   try {
-    localStorage.setItem('af84_keys', JSON.stringify(S.keys));
-    localStorage.setItem('af84_stats', JSON.stringify(S.stats));
+    localStorage.setItem('af85_keys', JSON.stringify(S.keys));
+    localStorage.setItem('af85_stats', JSON.stringify(S.stats));
   } catch (e) {
     cleanupStorageQuota();
     try {
-      localStorage.setItem('af84_keys', JSON.stringify(S.keys));
-      localStorage.setItem('af84_stats', JSON.stringify(S.stats));
+      localStorage.setItem('af85_keys', JSON.stringify(S.keys));
+      localStorage.setItem('af85_stats', JSON.stringify(S.stats));
     } catch (e2) {}
   }
   renderKeys();
@@ -1951,7 +1945,6 @@ function f32ToWavBlob(f32, sr) {
   return new Blob([ab], { type: 'audio/wav' });
 }
 
-/* ЗАПРОС К GEMINI С АВТО-ТАЙМАУТОМ И ПОДДЕРЖКОЙ РУЧНОГО СБРОСА */
 async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback, mainSignal) {
   const b64Promise = new Promise(r => {
     const reader = new FileReader();
@@ -1991,7 +1984,6 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
       const t0 = Date.now();
       const chunkController = new AbortController();
 
-      // Регистрируем в реестре активных потоков для отображения и ручного сброса
       activeChunkWorkers.set(chunk.index + 1, {
         abort: (reason) => chunkController.abort(reason),
         keyMasked: keyObj.masked,
@@ -2008,7 +2000,6 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
         updateMultiStreamStatus();
       }, 1000);
 
-      // Логика авто-таймаута (700 сек по умолчанию, можно отключить)
       let timeoutTimer = null;
       const isTimeoutOn = document.getElementById('chkAutoTimeout')?.checked ?? true;
       const timeoutSec = parseInt(document.getElementById('inputTimeoutSec')?.value, 10) || 700;
@@ -2102,12 +2093,11 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
 
         const abortReason = chunkController.signal.reason;
 
-        // Если сработал авто-таймаут или ручной сброс конкретного куска
         if (chunkController.signal.aborted && (abortReason === 'TIMEOUT' || abortReason === 'MANUAL_RESTART')) {
           const label = (abortReason === 'TIMEOUT') ? `Авто-таймаут (${timeoutSec}с)` : 'Ручной сброс';
           glog(`Кусок #${chunk.index + 1}: [${label}] — зависший запрос сброшен! Ротация ключа и мгновенный повтор...`, 'warn');
           await sleep(1000);
-          continue; // Повторяем этот же кусок с новым ключом, не ломая очередь
+          continue;
         }
 
         const status = err.status || 0;
@@ -2227,11 +2217,11 @@ document.addEventListener('DOMContentLoaded', () => {
   cleanupStorageQuota();
   loadSavedStyles();
 
-  if (localStorage.getItem('af84_auth_unlocked') === 'true') {
+  if (localStorage.getItem('af85_auth_unlocked') === 'true') {
     unlockApp();
   }
 
-  const allPrefixes = ['af84', 'af83', 'af82', 'af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
+  const allPrefixes = ['af85', 'af84', 'af83', 'af82', 'af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
   
   for (const pfx of allPrefixes) {
     try {
@@ -2356,6 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.innerHTML = '';
   });
 
+  // Запуск генерации
   document.getElementById('btnStartGen')?.addEventListener('click', async () => {
     if (!S.keys.length) return alert('Сначала добавьте хотя бы один ключ в блоке 1!');
     if (!S.batchQueue.length) return alert('Выберите аудиофайл(ы) в блоке 2!');
@@ -2382,7 +2373,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const autoDl = document.getElementById('gAutoDownload')?.checked;
     const saveFormat = document.getElementById('gFormatSelect')?.value || 'srt';
 
-    const maxDurSetting = parseFloat(document.getElementById('fxMax')?.value) || 10;
+    const maxDurSetting = parseFloat(document.getElementById('fxMax')?.value) || 6;
     const useSmart = document.getElementById('fxSmart')?.checked ?? true;
     const useSort = document.getElementById('fxSort')?.checked ?? true;
     const useTrim = document.getElementById('fxTrim')?.checked ?? true;
@@ -2420,7 +2411,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const chunks = await decodeAudioAndResample16k(file, chunkMin);
         const results = new Array(chunks.length);
-        const cachePrefix = `af84_${file.name}_${file.size}_chunk_`;
+        const cachePrefix = `af85_${file.name}_${file.size}_chunk_`;
 
         totalPlannedChunks = chunks.length;
         totalCompletedChunks = 0;
@@ -2451,7 +2442,7 @@ document.addEventListener('DOMContentLoaded', () => {
               results[idx] = resultText;
               S.cache[cacheKey] = resultText;
               try {
-                localStorage.setItem('af84_cache', JSON.stringify(S.cache));
+                localStorage.setItem('af85_cache', JSON.stringify(S.cache));
               } catch (e) {}
 
               totalCompletedChunks++;
@@ -2468,7 +2459,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await Promise.all(pool);
 
         if (!abortController.signal.aborted) {
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.4 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.5 Pro') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             smart: useSmart, 
@@ -2585,7 +2576,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dedup: document.getElementById('fxDedup')?.checked,
       splitSentences: document.getElementById('fxSplitSentences')?.checked,
       applyCustomStyles: document.getElementById('fxApplyCustomStyles')?.checked,
-      maxDur: parseFloat(document.getElementById('fxMax')?.value) || 10
+      maxDur: parseFloat(document.getElementById('fxMax')?.value) || 6
     });
 
     S.fixResult = fr.text;
@@ -2614,7 +2605,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v8.4 Pro готов. Авто-таймаут 700с и панель ручного сброса кусков активны.');
+  glog('ASS & SRT Fixer v8.5 Pro готов. Промпт очищен, лимит 6с активирован.');
 });
 </script>
 </body>

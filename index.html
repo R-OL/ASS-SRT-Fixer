@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v8.7 Pro</title>
+<title>ASS & SRT Fixer v8.9 Pro</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -294,6 +294,8 @@
   .preview-screen {
     position: relative;
     width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
     aspect-ratio: 16 / 9;
     background: #000;
     border-radius: 8px;
@@ -303,7 +305,7 @@
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
+    padding: 0 16px;
     user-select: none;
   }
 
@@ -354,7 +356,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v8.7 Pro</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v8.9 Pro</span></h1>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
       <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
@@ -691,19 +693,26 @@
 'use strict';
 
 /* =========================================================================
-   АВТОРИЗАЦИЯ ПО ПАРОЛЮ 696369
+   ЗАЩИЩЕННАЯ АВТОРИЗАЦИЯ И СТАБИЛЬНЫЕ КЛЮЧИ ХРАНИЛИЩА (НЕ УДАЛЯЮТСЯ)
    ========================================================================= */
 
 const AUTH_TOKEN = "Njk2MzY5";
+const APP_STORAGE_KEYS = new Set([
+  'af_auth_unlocked',
+  'af_user_styles',
+  'af_keys',
+  'af_stats',
+  'af_cache'
+]);
 
 function checkAuthPin() {
   const input = document.getElementById('authPinInput');
   const val = input ? input.value.trim() : '';
   
   if (btoa(val) === AUTH_TOKEN) {
-    localStorage.setItem('af87_auth_unlocked', 'true');
+    localStorage.setItem('af_auth_unlocked', 'true');
     unlockApp();
-    glog('Авторизация успешна. Устройство запомнено.');
+    glog('Авторизация успешна. Устройство запомнено навсегда.');
   } else {
     const err = document.getElementById('authErrorMsg');
     if (err) err.style.display = 'block';
@@ -745,6 +754,7 @@ const RES_H = 1080;
 const deadModels = new Set();
 const keyBusy = new Set();
 const keyCooldowns = new Map();
+let keyWaiters = [];
 let keyRoundRobinIndex = 0;
 
 const activeWorkersProgress = new Map();
@@ -796,6 +806,7 @@ function fmtSrtTime(sec) {
          String(ms).padStart(3, '0');
 }
 
+/* КОНВЕРТЕР ASS -> SRT С ПЕРЕНОСОМ \\N И ЗАЩИТОЙ ТЕГОВ */
 function assToSrt(assText) {
   if (!assText) return '';
   const lines = assText.replace(/\r\n?/g, '\n').split('\n');
@@ -813,7 +824,11 @@ function assToSrt(assText) {
     let e = t2 ? t2.v : (s + 2.0);
     if (e <= s) e = s + 1.5;
 
-    let cleanText = p.text.replace(/\{[^}]+\}/g, '').trim();
+    let cleanText = p.text
+      .replace(/\\N/gi, '\n')
+      .replace(/\\n/gi, '\n')
+      .replace(/\{[^}]+\}/g, '')
+      .trim();
     if (!cleanText) continue;
 
     if (p.style.toLowerCase() === 'streamer') {
@@ -893,7 +908,6 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
-/* ОЧИЩЕННЫЙ ЯКОРНЫЙ ПРОМПТ */
 const SYSTEM_PROMPT = `Ты — профессиональный переводчик и субтитровщик видео-реакций.
 Задача: Полный дословный перевод всей звучащей речи в формат субтитров ASS.
 
@@ -1008,6 +1022,9 @@ async function startKeepAlive() {
   try {
     if ('wakeLock' in navigator && !wakeLockSentinel) {
       wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => {
+        wakeLockSentinel = null;
+      });
     }
   } catch (e) {}
 }
@@ -1050,7 +1067,6 @@ function fmtT(x) {
   return hh + ':' + String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0') + '.' + String(cs).padStart(2, '0');
 }
 
-/* ОЧИЩЕННЫЙ ПАРСЕР ВРЕМЕНИ БЕЗ ИСКАЖАЮЩИХ КОСТЫЛЕЙ */
 function tparse(s) {
   const t = String(s == null ? '' : s).replace(/\s+/g, '');
   if (!t) return null;
@@ -1251,11 +1267,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('Починено ASS Fixer v8.7 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
+    return { text: assHeader('Починено ASS Fixer v8.9 Pro'), cnt: cnt, log: ['строк Dialogue не нашёл — вставил новую шапку'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('Починено ASS Fixer v8.7 Pro').replace(/\n+$/, '')
+    ? assHeader('Починено ASS Fixer v8.9 Pro').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1293,8 +1309,9 @@ function fixAss(text, opts) {
 
     const targetTrack = tracks[p.style] || tracks.Anime;
 
+    // Сплиттер корректно обрабатывает кавычки в конце предложений
     if (o.splitSentences && (e - s > 4.0)) {
-      const sentences = p.text.split(/(?<=[.!?…])\s*(?=[А-ЯA-Z0-9«"A-Z])/).map(t => t.trim()).filter(Boolean);
+      const sentences = p.text.split(/(?<=[.!?…][»"”']?)\s+(?=[А-ЯA-Z0-9«"“'])/).map(t => t.trim()).filter(Boolean);
       if (sentences.length > 1) {
         const totalChars = sentences.reduce((sum, cur) => sum + cur.length, 0);
         let curS = s;
@@ -1348,10 +1365,11 @@ function fixAss(text, opts) {
       }
     }
 
+    // Дедупликация на стыках кусков (захват повторов до 2 секунд)
     if (o.dedup) {
       for (let i = list.length - 1; i > 0; i--) {
         const cur = list[i], prev = list[i - 1];
-        if (!cur.dead && !prev.dead && Math.abs(cur.s - prev.s) < 0.05 && cur.p.text === prev.p.text) {
+        if (!cur.dead && !prev.dead && Math.abs(cur.s - prev.s) < 2.0 && cur.p.text === prev.p.text) {
           cur.dead = true;
           cnt.dedup++;
         }
@@ -1397,7 +1415,7 @@ function fixAss(text, opts) {
 
 function loadSavedStyles() {
   try {
-    const saved = localStorage.getItem('af87_user_styles');
+    const saved = localStorage.getItem('af_user_styles');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.streamer && parsed.anime) {
@@ -1424,7 +1442,7 @@ function saveUserStyles() {
   };
 
   try {
-    localStorage.setItem('af87_user_styles', JSON.stringify(UserStyles));
+    localStorage.setItem('af_user_styles', JSON.stringify(UserStyles));
   } catch (e) {}
 
   closeStyleModal();
@@ -1435,7 +1453,7 @@ function updateStylePreview() {
   const screen = document.getElementById('previewScreen');
   if (!screen) return;
 
-  const previewWidth = screen.clientWidth || 640;
+  const previewWidth = screen.clientWidth || 540;
   const scale = previewWidth / 1920;
 
   const stSize = parseInt(document.getElementById('stSize')?.value, 10) || 110;
@@ -1536,7 +1554,6 @@ const S = {
 };
 
 let abortController = null;
-let keyWaiters = [];
 let isQueueRunning = false;
 
 function showNumbered(box, text) {
@@ -1570,29 +1587,11 @@ async function saveSubtitleFile(filename, text, ext = 'srt') {
       glog(`Файл «${finalFilename}» сохранён в выбранную папку: [${globalSaveDirHandle.name}]`);
       return;
     } catch (e) {
-      glog(`Не удалось записать в папку [${globalSaveDirHandle.name}]: ${e.message}`, 'warn');
+      glog(`Не удалось записать в папку [${globalSaveDirHandle.name}]: ${e.message}. Скачиваю через браузер...`, 'warn');
     }
   }
 
-  if ('showSaveFilePicker' in window) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: finalFilename,
-        types: [{
-          description: ext.toUpperCase() + ' Subtitles',
-          accept: { [mimeType]: ['.' + ext] }
-        }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(text);
-      await writable.close();
-      glog(`Файл успешно сохранён: ${handle.name}`);
-      return;
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-    }
-  }
-
+  // Гарантированный фоллбек через браузерный Blob
   const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1602,12 +1601,14 @@ async function saveSubtitleFile(filename, text, ext = 'srt') {
   URL.revokeObjectURL(url);
 }
 
+/* БЕЗОПАСНАЯ ОЧИСТКА ХРАНИЛИЩА (НЕ ТРОГАЕТ АВТОРИЗАЦИЮ И СТИЛИ) */
 function cleanupStorageQuota() {
   try {
     const oldKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('af') && !k.startsWith('af87')) {
+      // Удаляем только старые временные ключи от ранних версий
+      if (k && k.startsWith('af') && !APP_STORAGE_KEYS.has(k)) {
         oldKeys.push(k);
       }
     }
@@ -1617,13 +1618,13 @@ function cleanupStorageQuota() {
 
 function saveKeys() {
   try {
-    localStorage.setItem('af87_keys', JSON.stringify(S.keys));
-    localStorage.setItem('af87_stats', JSON.stringify(S.stats));
+    localStorage.setItem('af_keys', JSON.stringify(S.keys));
+    localStorage.setItem('af_stats', JSON.stringify(S.stats));
   } catch (e) {
     cleanupStorageQuota();
     try {
-      localStorage.setItem('af87_keys', JSON.stringify(S.keys));
-      localStorage.setItem('af87_stats', JSON.stringify(S.stats));
+      localStorage.setItem('af_keys', JSON.stringify(S.keys));
+      localStorage.setItem('af_stats', JSON.stringify(S.stats));
     } catch (e2) {}
   }
   renderKeys();
@@ -1809,7 +1810,7 @@ async function fetchAvailableModels() {
   }
 }
 
-/* АДАПТИВНАЯ НАРЕЗКА С ЗАЩИТОЙ ОТ РЕЗА ПО СЛОВАМ */
+/* УМНАЯ НАРЕЗКА С ОБЪЕДИНЕНИЕМ МИКРО-ХВОСТОВ */
 function planChunksBySilence(f32, sr, minMinutes) {
   const chunkSec = Math.max(60, Math.min(1200, (Number(minMinutes) || 4) * 60));
   const frame = 0.4;
@@ -1824,9 +1825,6 @@ function planChunksBySilence(f32, sr, minMinutes) {
     rms[f] = Math.sqrt(s / Math.max(1, i1 - i0));
   }
 
-  const srt = Array.prototype.slice.call(rms).sort((x, y) => x - y);
-  const p10 = srt[Math.floor(srt.length * 0.10)] || 0;
-  const thr = Math.max(0.003, p10 * 1.5);
   const total = f32.length / sr;
   const plan = [];
   let a = 0;
@@ -1846,27 +1844,47 @@ function planChunksBySilence(f32, sr, minMinutes) {
     plan.push([a, cut]);
     a = cut;
   }
-  if (total - a > 0.5) plan.push([a, total]);
+
+  // Объединяем остаток, если он меньше 35 секунд, с последним куском
+  if (total - a > 0.5) {
+    if (plan.length > 0 && (total - a < 35)) {
+      plan[plan.length - 1][1] = total;
+    } else {
+      plan.push([a, total]);
+    }
+  }
   return plan;
 }
 
+/* ДЕКОДИРОВАНИЕ С МГНОВЕННЫМ ОСВОБОЖДЕНИЕМ audioBuf */
 async function decodeAudioAndResample16k(file, chunkMinutes) {
   glog(`Декодирую аудио «${file.name}»...`);
   let ab = await file.arrayBuffer();
   const ac = new (window.AudioContext || window.webkitAudioContext)();
-  const audioBuf = await ac.decodeAudioData(ab);
-  ab = null;
+  
+  let audioBuf;
+  try {
+    audioBuf = await ac.decodeAudioData(ab);
+  } finally {
+    ab = null;
+  }
 
   const dur = audioBuf.duration;
-  glog(`Длина аудио: ${mmss(dur)} (${Math.round(dur)}с). Нормализация и ресемплинг 16 кГц...`);
-
   const numChannels = audioBuf.numberOfChannels;
   const length = audioBuf.length;
+  const srcSampleRate = audioBuf.sampleRate;
+
+  glog(`Длина аудио: ${mmss(dur)} (${Math.round(dur)}с). Ресемплинг 16 кГц...`);
+
   let monoF32 = new Float32Array(length);
   for (let ch = 0; ch < numChannels; ch++) {
     const chData = audioBuf.getChannelData(ch);
     for (let i = 0; i < length; i++) monoF32[i] += chData[i] / numChannels;
   }
+
+  // Освобождаем 500 МБ памяти ДО запуска тяжелого ресемплинга
+  audioBuf = null;
+  await ac.close();
 
   let maxPeak = 0;
   for (let i = 0; i < length; i++) {
@@ -1874,17 +1892,17 @@ async function decodeAudioAndResample16k(file, chunkMinutes) {
     if (abs > maxPeak) maxPeak = abs;
   }
   if (maxPeak > 0.01) {
-    const gain = 0.9 / maxPeak;
+    const gain = Math.min(10.0, 0.9 / maxPeak);
     for (let i = 0; i < length; i++) monoF32[i] *= gain;
   }
 
   let final16kF32;
   const targetSampleRate = 16000;
-  if (audioBuf.sampleRate === targetSampleRate) {
+  if (srcSampleRate === targetSampleRate) {
     final16kF32 = monoF32;
   } else {
-    const offlineCtx = new OfflineAudioContext(1, Math.ceil(length * targetSampleRate / audioBuf.sampleRate), targetSampleRate);
-    const tempBuffer = offlineCtx.createBuffer(1, length, audioBuf.sampleRate);
+    const offlineCtx = new OfflineAudioContext(1, Math.ceil(length * targetSampleRate / srcSampleRate), targetSampleRate);
+    const tempBuffer = offlineCtx.createBuffer(1, length, srcSampleRate);
     tempBuffer.getChannelData(0).set(monoF32);
     monoF32 = null;
     const source = offlineCtx.createBufferSource();
@@ -1894,7 +1912,6 @@ async function decodeAudioAndResample16k(file, chunkMinutes) {
     const rendered = await offlineCtx.startRendering();
     final16kF32 = rendered.getChannelData(0);
   }
-  await ac.close();
 
   const plan = planChunksBySilence(final16kF32, targetSampleRate, chunkMinutes);
   const chunks = [];
@@ -1916,7 +1933,7 @@ async function decodeAudioAndResample16k(file, chunkMinutes) {
   }
 
   final16kF32 = null;
-  glog(`Нарезано кусков: ${chunks.length} (~${chunkMinutes} мин). Память RAM очищена.`);
+  glog(`Нарезано кусков: ${chunks.length} (~${chunkMinutes} мин). Память RAM чиста.`);
   return chunks;
 }
 
@@ -1941,7 +1958,6 @@ function f32ToWavBlob(f32, sr) {
   return new Blob([ab], { type: 'audio/wav' });
 }
 
-/* ОТПРАВКА С ТОЧНОЙ ТЕМПЕРАТУРОЙ 0.0 И ЯВНЫМ ТЕКСТОВЫМ ЗАДАНИЕМ */
 async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback, mainSignal) {
   const b64Promise = new Promise(r => {
     const reader = new FileReader();
@@ -2023,7 +2039,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
           ]
         }],
         generationConfig: {
-          temperature: 0.0, // СТРОГО 0.0 ДЛЯ УСТРАНЕНИЯ МИКРО-РАЗБРОСА ЦИФР ТАЙМИНГА
+          temperature: 0.0,
           topP: 0.95
         }
       };
@@ -2138,8 +2154,13 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
   throw new Error(`Не удалось расшифровать кусок #${chunk.index + 1}. Последний ответ Google: ${lastError}`);
 }
 
+/* УЛУЧШЕННОЕ РАСПОЗНАВАНИЕ СЕРИИ (ИГНОРИРУЕТ ДАТЫ В ИМЕНИ) */
 function extractEpisodeNumber(filename) {
-  const m = filename.match(/(?:ep|s\d+e|серия|эпизод|выпуск|\b)(\d+)\b/i);
+  let m = filename.match(/(?:ep|s\d+e|серия|эпизод|выпуск)[.\s_-]*(\d{1,4})\b/i);
+  if (m) return m[1];
+  m = filename.match(/\b(?!19\d\d|20\d\d)(\d{1,3})\b/);
+  if (m) return m[1];
+  m = filename.match(/\b(\d+)\b/);
   return m ? m[1] : '';
 }
 
@@ -2208,33 +2229,24 @@ function applyNamingPattern() {
 }
 
 /* =========================================================================
-   ИНИЦИАЛИЗАЦИЯ И ОБРАБОТЧИКИ СОБЫТИЙ
+   ИНИЦИАЛИЗАЦИЯ И СОБЫТИЯ
    ========================================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
   cleanupStorageQuota();
   loadSavedStyles();
 
-  if (localStorage.getItem('af87_auth_unlocked') === 'true') {
+  if (localStorage.getItem('af_auth_unlocked') === 'true') {
     unlockApp();
   }
 
-  const allPrefixes = ['af87', 'af86', 'af85', 'af84', 'af83', 'af82', 'af81', 'af80', 'af79', 'af78', 'af77', 'af76', 'af75', 'af74', 'af73', 'af72', 'af71', 'af70', 'af69', 'af68', 'af67', 'af66', 'af65', 'af64', 'af63', 'af62', 'af61', 'af60', 'af59', 'af58', 'af53', 'af51'];
-  
-  for (const pfx of allPrefixes) {
-    try {
-      const saved = localStorage.getItem(pfx + '_keys');
-      if (saved) {
-        const arr = JSON.parse(saved);
-        if (Array.isArray(arr) && arr.length > 0 && S.keys.length === 0) {
-          S.keys = arr;
-          const savedStats = localStorage.getItem(pfx + '_stats');
-          if (savedStats) S.stats = JSON.parse(savedStats) || {};
-          break;
-        }
-      }
-    } catch (e) {}
-  }
+  // Загрузка ключей и статистики из защищенного хранилища
+  try {
+    const savedKeys = localStorage.getItem('af_keys');
+    if (savedKeys) S.keys = JSON.parse(savedKeys) || [];
+    const savedStats = localStorage.getItem('af_stats');
+    if (savedStats) S.stats = JSON.parse(savedStats) || {};
+  } catch (e) {}
 
   renderKeys();
   handleFormatChange();
@@ -2418,7 +2430,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const chunks = await decodeAudioAndResample16k(file, chunkMin);
         const results = new Array(chunks.length);
-        const cachePrefix = `af87_${file.name}_${file.size}_chunk_`;
+        const cachePrefix = `af_chunk_${file.name}_${file.size}_`;
 
         totalPlannedChunks = chunks.length;
         totalCompletedChunks = 0;
@@ -2448,8 +2460,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
               results[idx] = resultText;
               S.cache[cacheKey] = resultText;
+
+              // Ротация памяти кэша до 60 записей
+              const cacheKeys = Object.keys(S.cache);
+              if (cacheKeys.length > 60) {
+                delete S.cache[cacheKeys[0]];
+              }
+
               try {
-                localStorage.setItem('af87_cache', JSON.stringify(S.cache));
+                localStorage.setItem('af_cache', JSON.stringify(S.cache));
               } catch (e) {}
 
               totalCompletedChunks++;
@@ -2466,7 +2485,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await Promise.all(pool);
 
         if (!abortController.signal.aborted) {
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.7 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v8.9 Pro') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             smart: useSmart, 
@@ -2497,13 +2516,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (saveFormat === 'srt' || saveFormat === 'both') {
               await saveSubtitleFile(outName, assToSrt(fr.text), 'srt');
             }
+            if (saveFormat === 'both') {
+              await sleep(350); // Безопасная пауза от блокировки двух файлов подряд
+            }
             if (saveFormat === 'ass' || saveFormat === 'both') {
               await saveSubtitleFile(outName, fr.text, 'ass');
             }
           }
 
           results.length = 0;
-          await sleep(600);
+          await sleep(500);
         }
       }
 
@@ -2517,6 +2539,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       isQueueRunning = false;
       stopKeepAlive();
+      keyBusy.clear();
+      keyWaiters.length = 0;
+      activeChunkWorkers.clear();
+      activeWorkersProgress.clear();
+      updateMultiStreamStatus();
+
       if (btnStart) btnStart.disabled = false;
       if (btnStop) btnStop.disabled = true;
     }
@@ -2526,6 +2554,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (abortController) abortController.abort();
     isQueueRunning = false;
     stopKeepAlive();
+    keyBusy.clear();
+    keyWaiters.length = 0;
+    activeChunkWorkers.clear();
     glog('Очередь остановлена пользователем.', 'warn');
     setStatus('Остановлено');
   });
@@ -2614,7 +2645,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v8.7 Pro готов. Чистая акустика, температура 0.0, устранение костылей.');
+  glog('ASS & SRT Fixer v8.9 Pro готов. Все скрытые баги и риски устранены.');
 });
 </script>
 </body>

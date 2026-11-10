@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v9.2 Clean Pro</title>
+<title>ASS & SRT Fixer v9.3 Final Pro</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -350,7 +350,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v9.2 Clean</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v9.3 Final</span></h1>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
       <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
@@ -409,7 +409,7 @@
     <div class="card">
       <h2>2 · Настройки генерации & Очередь файлов</h2>
       <div>
-        <label for="gAudioFile">Аудиофайлы (можно выбрать сразу несколько):</label>
+        <label for="gAudioFile">Аудиофайлы (можно выбрать сразу несколько серий):</label>
         <input type="file" id="gAudioFile" accept="audio/*" multiple>
       </div>
 
@@ -516,7 +516,7 @@
   </div>
 
   <div class="grid-layout">
-    <!-- БЛОК 3: Чистый фиксер без искажений -->
+    <!-- БЛОК 3: Ручной фиксер -->
     <div class="card">
       <h2>
         3 · Ручная починка субтитров
@@ -730,7 +730,7 @@ function handleFormatChange() {
 }
 
 /* =========================================================================
-   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И СИСТЕМНЫЙ ПРОМПТ
+   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И СИСТЕМНЫЙ ПРОМПТ БЕЗ ПРИВЯЗКИ К 4 МИНУТАМ
    ========================================================================= */
 
 const RES_W = 1920;
@@ -891,7 +891,7 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
-/* ПРОСТОЙ, КРИСТАЛЬНО ЧИСТЫЙ ПРОМПТ ДЛЯ GEMINI */
+/* ПРОМПТ БЕЗ ПРИВЯЗКИ К КОНКРЕТНЫМ МИНУТАМ */
 const SYSTEM_PROMPT = `Ты — профессиональный переводчик и субтитровщик видео-реакций.
 Твоя задача: Полный дословный перевод всей звучащей речи на русский язык в формате субтитров ASS.
 
@@ -900,12 +900,11 @@ const SYSTEM_PROMPT = `Ты — профессиональный перевод�
 - Речь в видео/аниме (японский) -> стиль "Anime" (имена по Поливанову)
 
 ПРАВИЛА ТАЙМИНГА:
-1. ДОСЛОВНЫЙ ПЕРЕВОД: Переводи всю звучащую речь без сокращений, пропусков и сжатия смысла.
-2. ТОЧНОСТЬ ТАЙМКОДОВ:
-   - Start — строго момент, когда фраза начинает физически звучать в аудио.
-   - End — строго момент, когда фраза заканчивает звучать.
-3. ПАУЗЫ И ОПЕНИНГИ: Если персонажи молчат, играет заставка, музыка или тишина — субтитры НЕ должны гореть на экране. Не растягивай субтитры на паузы между фразами.
-4. СТРОГИЙ ФОРМАТ КАЖДОЙ СТРОКИ:
+1. ДОСЛОВНЫЙ ПЕРЕВОД: Полный дословный перевод всей звучащей речи без сокращений, пропусков и сжатия смысла.
+2. ФОРМАТ ТАЙМКОДОВ СТРОГО: H:MM:SS.cs (например: 0:00:15.40, 0:01:25.10, 0:02:40.80).
+3. НЕПРЕРЫВНОСТЬ ВРЕМЕНИ: Таймкоды отсчитываются от начала аудиофайла (0:00:00.00) и должны непрерывно увеличиваться по ходу звучания речи до самого конца аудио. Категорически ЗАПРЕЩЕНО сбрасывать минуты обратно на 0:00:xx при наступлении новой минуты!
+4. ПАУЗЫ И ОПЕНИНГИ: Если персонажи молчат, играет заставка, музыка или тишина — субтитры НЕ должны гореть на экране. Не растягивай субтитры на паузы между фразами.
+5. СТРОГИЙ ФОРМАТ КАЖДОЙ СТРОКИ:
 Dialogue: 0,Start,End,Style,,0,0,0,,Текст перевода на русском`;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1166,32 +1165,58 @@ function joinBrokenLines(text) {
   return { text: out.join('\n') };
 }
 
-/* ТОЧНЫЙ МАТЕМАТИЧЕСКИЙ СДВИГ БЕЗ ИСКАЖЕНИЙ ВРЕМЕНИ */
-function shiftLines(lines, off) {
+/* ТОЧНЫЙ МАТЕМАТИЧЕСКИЙ СДВИГ С АВТО-РАСПАКОВКОЙ СБРОСОВ МИНУТ */
+function shiftLines(lines, off, chunkDur) {
   const out = [];
+  const parsed = [];
 
   for (let i = 0; i < (lines || []).length; i++) {
     const item = smartParseAssLine(lines[i]);
     if (!item) continue;
-
     const t1 = tparse(item.startStr);
     if (!t1) continue;
 
     let s = t1.v;
     let e = null;
-
     if (item.endStr) {
       const t2 = tparse(item.endStr);
       if (t2) e = t2.v;
     }
+    if (e == null || e <= s) e = s + 2.0;
 
-    if (e == null || e <= s) {
-      e = s + 2.0; // Безопасное значение по умолчанию, если модель забыла End
-    }
-
-    // Просто прибавляем точное смещение куска!
-    out.push('Dialogue: 0,' + fmtT(s + off) + ',' + fmtT(e + off) + ',' + item.style + ',' + item.name + ',0,0,0,,' + item.text);
+    parsed.push({ item, s, e });
   }
+
+  // Разделяем дорожки, чтобы авто-распаковка минут работала строго внутри каждого спикера
+  const tracks = { Anime: [], Streamer: [] };
+  parsed.forEach(p => {
+    if (tracks[p.item.style]) tracks[p.item.style].push(p);
+    else tracks.Anime.push(p);
+  });
+
+  ['Anime', 'Streamer'].forEach(styleKey => {
+    const list = tracks[styleKey];
+    let minuteOffset = 0;
+    let lastRawStart = -1;
+
+    for (let i = 0; i < list.length; i++) {
+      const cur = list[i];
+
+      // Если в выводе модели таймкод внезапно прыгнул назад более чем на 20 секунд
+      // (например, предыдущая фраза была на 56с, а текущая пришла как 21с),
+      // значит модель сбросила минуты в 00! Автоматически восстанавливаем минуты:
+      while (lastRawStart >= 0 && (cur.s + minuteOffset) < (lastRawStart - 20)) {
+        minuteOffset += 60;
+      }
+
+      cur.s += minuteOffset;
+      cur.e += minuteOffset;
+      if (cur.e <= cur.s) cur.e = cur.s + 1.5;
+      lastRawStart = cur.s;
+
+      out.push('Dialogue: 0,' + fmtT(cur.s + off) + ',' + fmtT(cur.e + off) + ',' + cur.item.style + ',' + cur.item.name + ',0,0,0,,' + cur.item.text);
+    }
+  });
 
   return out;
 }
@@ -1222,11 +1247,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('ASS Fixer v9.2'), log: ['строк Dialogue не найдено'] };
+    return { text: assHeader('ASS Fixer v9.3'), log: ['строк Dialogue не найдено'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('ASS Fixer v9.2').replace(/\n+$/, '')
+    ? assHeader('ASS Fixer v9.3').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1247,7 +1272,6 @@ function fixAss(text, opts) {
     let e = t2 ? t2.v : (s + 2.0);
     if (e <= s) e = s + 1.5;
 
-    // Ограничение слишком длинных залипших субтитров (если включено)
     if (o.limitMaxDur && (e - s > maxDur)) {
       e = s + maxDur;
     }
@@ -1258,12 +1282,10 @@ function fixAss(text, opts) {
 
   const resultRows = [];
 
-  // Обрабатываем каждую дорожку АБСОЛЮТНО НЕЗАВИСИМО
   ['Anime', 'Streamer'].forEach(styleKey => {
     const list = tracks[styleKey];
     list.sort((a, b) => a.s - b.s || a.e - b.e);
 
-    // Дедупликация идентичных строк только внутри ОДНОЙ дорожки на стыках кусков
     if (o.dedup) {
       for (let i = list.length - 1; i > 0; i--) {
         const cur = list[i], prev = list[i - 1];
@@ -1672,7 +1694,7 @@ async function fetchAvailableModels() {
   } catch (e) {}
 }
 
-/* ПРОСТАЯ И НАДЕЖНАЯ НАРЕЗКА ВОКРУГ ПАУЗ БЕЗ ИСКАЖЕНИЙ */
+/* ПРОСТАЯ И НАДЕЖНАЯ НАРЕЗКА ВОКРУГ ПАУЗ БЕЗ ЖЕСТКОЙ ПРИВЯЗКИ */
 function planCleanChunks(f32, sr, minMinutes) {
   const targetSec = Math.max(60, Math.min(600, (Number(minMinutes) || 4) * 60));
   const totalSec = f32.length / sr;
@@ -1788,7 +1810,7 @@ async function decodeAudioAndResample16k(file, chunkMinutes) {
   }
 
   final16kF32 = null;
-  glog(`Нарезано на ${chunks.length} чистых кусков (~${chunkMinutes} мин).`);
+  glog(`Нарезано на ${chunks.length} кусков (~${chunkMinutes} мин).`);
   return chunks;
 }
 
@@ -2275,7 +2297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
               const res = await transcribeChunkResilient(c, model, think, fallback, abortController.signal);
               const glued = joinBrokenLines(res.rawSub).text;
-              const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec);
+              const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec, c.duration);
               const resultText = shifted.join('\n');
 
               results[idx] = resultText;
@@ -2300,7 +2322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await Promise.all(pool);
 
         if (!abortController.signal.aborted) {
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v9.2 Clean') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v9.3 Final') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             sort: useSort, 
@@ -2452,7 +2474,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v9.2 Clean готов к работе.');
+  glog('ASS & SRT Fixer v9.3 Final готов к работе.');
 });
 </script>
 </body>

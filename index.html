@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v9.3 Final Pro</title>
+<title>ASS & SRT Fixer v9.4 Resilient</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -350,7 +350,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v9.3 Final</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v9.4 Resilient</span></h1>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
       <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
@@ -365,7 +365,7 @@
     <!-- БЛОК 1: Ключи -->
     <div style="display:flex; flex-direction:column; gap:16px;">
       <div class="card">
-        <h2>1 · Ключи Google AI (Честный Round-Robin)</h2>
+        <h2>1 · Ключи Google AI (Честный Round-Robin + Anti-429)</h2>
         <div>
           <label for="gKeyInput">Вставьте список ключей (каждый с новой строки или через пробел):</label>
           <textarea id="gKeyInput" placeholder="AIzaSy..."></textarea>
@@ -409,7 +409,7 @@
     <div class="card">
       <h2>2 · Настройки генерации & Очередь файлов</h2>
       <div>
-        <label for="gAudioFile">Аудиофайлы (можно выбрать сразу несколько серий):</label>
+        <label for="gAudioFile">Аудиофайлы (можно выбрать сразу несколько):</label>
         <input type="file" id="gAudioFile" accept="audio/*" multiple>
       </div>
 
@@ -464,10 +464,10 @@
         <div>
           <label for="gModelSelect">Основная модель Gemini:</label>
           <select id="gModelSelect">
-            <option value="gemini-flash-latest" selected>gemini-flash-latest (рекомендуется)</option>
+            <option value="gemini-3.5-flash" selected>gemini-3.5-flash (максимально стабильная)</option>
+            <option value="gemini-flash-latest">gemini-flash-latest (новейшая)</option>
             <option value="gemini-3.6-flash">gemini-3.6-flash (быстрая)</option>
             <option value="gemini-3.7-flash">gemini-3.7-flash (надежная 3.7)</option>
-            <option value="gemini-3.5-flash">gemini-3.5-flash (классическая)</option>
             <option value="gemini-3.8-flash">gemini-3.8-flash (флагман 3.8)</option>
           </select>
         </div>
@@ -480,7 +480,7 @@
           <input type="number" id="gChunk" min="1" max="10" step="0.5" value="4">
         </div>
         <div>
-          <label for="gPar">Потоков (1–2):</label>
+          <label for="gPar">Потоков (реком: 1–2):</label>
           <input type="number" id="gPar" min="1" max="2" value="2">
         </div>
         <div>
@@ -730,7 +730,7 @@ function handleFormatChange() {
 }
 
 /* =========================================================================
-   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И СИСТЕМНЫЙ ПРОМПТ БЕЗ ПРИВЯЗКИ К 4 МИНУТАМ
+   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И СИСТЕМНЫЙ ПРОМПТ
    ========================================================================= */
 
 const RES_W = 1920;
@@ -756,10 +756,10 @@ let UserStyles = {
 };
 
 const SAFE_QUALITY_CASCADE = [
+  'gemini-3.5-flash',
   'gemini-flash-latest',
   'gemini-3.6-flash',
   'gemini-3.7-flash',
-  'gemini-3.5-flash',
   'gemini-3.8-flash'
 ];
 
@@ -891,7 +891,6 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
-/* ПРОМПТ БЕЗ ПРИВЯЗКИ К КОНКРЕТНЫМ МИНУТАМ */
 const SYSTEM_PROMPT = `Ты — профессиональный переводчик и субтитровщик видео-реакций.
 Твоя задача: Полный дословный перевод всей звучащей речи на русский язык в формате субтитров ASS.
 
@@ -1165,8 +1164,8 @@ function joinBrokenLines(text) {
   return { text: out.join('\n') };
 }
 
-/* ТОЧНЫЙ МАТЕМАТИЧЕСКИЙ СДВИГ С АВТО-РАСПАКОВКОЙ СБРОСОВ МИНУТ */
-function shiftLines(lines, off, chunkDur) {
+/* ТОЧНЫЙ МАТЕМАТИЧЕСКИЙ СДВИГ С АВТО-РАСПАКОВКОЙ МИНУТ */
+function shiftLines(lines, off) {
   const out = [];
   const parsed = [];
 
@@ -1187,7 +1186,6 @@ function shiftLines(lines, off, chunkDur) {
     parsed.push({ item, s, e });
   }
 
-  // Разделяем дорожки, чтобы авто-распаковка минут работала строго внутри каждого спикера
   const tracks = { Anime: [], Streamer: [] };
   parsed.forEach(p => {
     if (tracks[p.item.style]) tracks[p.item.style].push(p);
@@ -1202,9 +1200,9 @@ function shiftLines(lines, off, chunkDur) {
     for (let i = 0; i < list.length; i++) {
       const cur = list[i];
 
-      // Если в выводе модели таймкод внезапно прыгнул назад более чем на 20 секунд
-      // (например, предыдущая фраза была на 56с, а текущая пришла как 21с),
-      // значит модель сбросила минуты в 00! Автоматически восстанавливаем минуты:
+      // Если в выводе модели секунды внезапно прыгнули назад более чем на 20 сек
+      // (например, предыдущая фраза была на 56с, а следующая пришла как 21с),
+      // значит Gemini сбросила минуты в 00! Автоматически восстанавливаем минуты:
       while (lastRawStart >= 0 && (cur.s + minuteOffset) < (lastRawStart - 20)) {
         minuteOffset += 60;
       }
@@ -1221,7 +1219,7 @@ function shiftLines(lines, off, chunkDur) {
   return out;
 }
 
-/* БЕРЕЖНАЯ ФИНАЛЬНАЯ СБОРКА: СТРИМЕР И АНИМЕ ЖИВУТ НЕЗАВИСИМО */
+/* БЕРЕЖНАЯ СБОРКА: СТРИМЕР И АНИМЕ ЖИВУТ НЕЗАВИСИМО */
 function fixAss(text, opts) {
   const o = Object.assign({ 
     sort: true, 
@@ -1247,11 +1245,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('ASS Fixer v9.3'), log: ['строк Dialogue не найдено'] };
+    return { text: assHeader('ASS Fixer v9.4'), log: ['строк Dialogue не найдено'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('ASS Fixer v9.3').replace(/\n+$/, '')
+    ? assHeader('ASS Fixer v9.4').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1446,7 +1444,7 @@ const S = {
   genResult: '',
   fixResult: '',
   fixSource: '',
-  activeModelOverride: null,
+  activeModelOverride: 'gemini-3.5-flash',
   batchQueue: []
 };
 
@@ -1612,32 +1610,59 @@ window.handleAddKeyClick = function() {
   }
 };
 
+/* УМНАЯ ВЫДАЧА КЛЮЧЕЙ С ЗАЩИТОЙ ОТ ПАНИКИ 429 */
 function acquireKey() {
   const now = Date.now();
   const aliveKeys = S.keys.filter(k => !(S.stats[k] && (S.stats[k].dead || S.stats[k].daily)));
   if (!aliveKeys.length) return Promise.resolve(null);
 
+  // 1. Проверяем, есть ли готовый ключ прямо сейчас
   for (let offset = 0; offset < aliveKeys.length; offset++) {
     const idx = (keyRoundRobinIndex + offset) % aliveKeys.length;
     const k = aliveKeys[idx];
-
     if (keyBusy.has(k)) continue;
 
     const cd = keyCooldowns.get(k) || 0;
-    if (cd > now && aliveKeys.some(other => !keyBusy.has(other) && (keyCooldowns.get(other) || 0) <= now)) {
-      continue;
+    if (cd <= now) {
+      keyBusy.add(k);
+      keyRoundRobinIndex = (idx + 1) % aliveKeys.length;
+      return Promise.resolve({
+        key: k,
+        index: S.keys.indexOf(k) + 1,
+        masked: k.slice(0, 8) + '…' + k.slice(-4)
+      });
     }
-
-    keyBusy.add(k);
-    keyRoundRobinIndex = (idx + 1) % aliveKeys.length;
-    return Promise.resolve({
-      key: k,
-      index: S.keys.indexOf(k) + 1,
-      masked: k.slice(0, 8) + '…' + k.slice(-4)
-    });
   }
 
-  return new Promise(resolve => keyWaiters.push(resolve));
+  // 2. Если все свободные ключи на паузе (429), находим тот, у которого быстрее спадет кулдаун
+  let minWaitMs = Infinity;
+  let bestKey = null;
+  aliveKeys.forEach(k => {
+    if (!keyBusy.has(k)) {
+      const cd = keyCooldowns.get(k) || 0;
+      const diff = cd - now;
+      if (diff < minWaitMs) {
+        minWaitMs = diff;
+        bestKey = k;
+      }
+    }
+  });
+
+  // Если все ключи заняты активными веб-запросами прямо сейчас
+  if (minWaitMs === Infinity || !bestKey) {
+    return new Promise(resolve => keyWaiters.push(resolve));
+  }
+
+  // ВМЕСТО СПАМА И ПАНИКИ: ЧЕСТНО ЖДЕМ РАЗБЛОКИРОВКИ МИНУТНОЙ КВОТЫ
+  const waitSec = Math.max(2, Math.ceil(minWaitMs / 1000));
+  glog(`⏳ Все ключи в паузе лимита. Ждём сброса квоты Google (${waitSec} сек)...`, 'warn');
+
+  return new Promise(resolve => {
+    setTimeout(async () => {
+      const res = await acquireKey();
+      resolve(res);
+    }, waitSec * 1000);
+  });
 }
 
 function releaseKey(k) {
@@ -1653,7 +1678,7 @@ function releaseKey(k) {
   }
 }
 
-function putKeyOnCooldown(key, sec = 40) {
+function putKeyOnCooldown(key, sec = 45) {
   keyCooldowns.set(key, Date.now() + sec * 1000);
 }
 
@@ -1687,14 +1712,14 @@ async function fetchAvailableModels() {
         select.appendChild(opt);
       });
 
-      if (models.includes('gemini-flash-latest')) select.value = 'gemini-flash-latest';
+      if (models.includes('gemini-3.5-flash')) select.value = 'gemini-3.5-flash';
+      else if (models.includes('gemini-flash-latest')) select.value = 'gemini-flash-latest';
       else if (models.includes(curVal)) select.value = curVal;
       glog(`Список проверенных моделей обновлен.`);
     }
   } catch (e) {}
 }
 
-/* ПРОСТАЯ И НАДЕЖНАЯ НАРЕЗКА ВОКРУГ ПАУЗ БЕЗ ЖЕСТКОЙ ПРИВЯЗКИ */
 function planCleanChunks(f32, sr, minMinutes) {
   const targetSec = Math.max(60, Math.min(600, (Number(minMinutes) || 4) * 60));
   const totalSec = f32.length / sr;
@@ -1703,7 +1728,6 @@ function planCleanChunks(f32, sr, minMinutes) {
 
   while (totalSec - cur > targetSec) {
     let cutSec = cur + targetSec;
-    // Ищем тихую точку в окне ±12 секунд, чтобы не резать слова посреди слога
     const winStart = Math.max(cur + 30, cutSec - 12);
     const winEnd = Math.min(totalSec - 10, cutSec + 12);
     const step = 0.25;
@@ -1835,6 +1859,7 @@ function f32ToWavBlob(f32, sr) {
   return new Blob([ab], { type: 'audio/wav' });
 }
 
+/* СТОЙКАЯ ГЕНЕРАЦИЯ: НЕ СДАЕТСЯ ПРИ ВРЕМЕННЫХ ОШИБКАХ 429/503 */
 async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback, mainSignal) {
   const b64Promise = new Promise(r => {
     const reader = new FileReader();
@@ -1861,7 +1886,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
     if (deadModels.has(currentModel)) continue;
 
     let attempts = 0;
-    const maxAttemptsForThisModel = (mIdx === 0) ? 3 : 2;
+    const maxAttemptsForThisModel = (currentModel === S.activeModelOverride) ? 5 : 3;
 
     while (attempts < maxAttemptsForThisModel) {
       if (mainSignal.aborted) throw new Error('Прервано пользователем');
@@ -1907,7 +1932,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents: [{
           parts: [
-            { text: "Создай русские субтитры ASS для этого аудио с точными таймингами:" },
+            { text: "Создай русские субтитры ASS для этого аудиофайла:" },
             { inline_data: { mime_type: 'audio/wav', data: b64Audio } }
           ]
         }],
@@ -1953,7 +1978,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
           continue;
         }
 
-        if (currentModel !== chosenModel && !S.activeModelOverride) {
+        if (currentModel !== chosenModel) {
           S.activeModelOverride = currentModel;
         }
 
@@ -1966,39 +1991,50 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
         activeWorkersProgress.delete(chunk.index + 1);
         updateMultiStreamStatus();
 
-        putKeyOnCooldown(keyObj.key, 60);
-        releaseKey(keyObj.key);
+        const status = err.status || 0;
+        lastError = err.text || err.message || `HTTP ${status}`;
 
-        if (mainSignal.aborted) throw new Error('Прервано пользователем');
+        if (mainSignal.aborted) {
+          releaseKey(keyObj.key);
+          throw new Error('Прервано пользователем');
+        }
 
         const abortReason = chunkController.signal.reason;
         if (chunkController.signal.aborted && (abortReason === 'TIMEOUT' || abortReason === 'MANUAL_RESTART')) {
-          glog(`Кусок #${chunk.index + 1}: Сброс по таймауту/вручную. Повтор с новым ключом...`, 'warn');
+          putKeyOnCooldown(keyObj.key, 30);
+          releaseKey(keyObj.key);
+          glog(`Кусок #${chunk.index + 1}: Сброс. Повтор...`, 'warn');
           await sleep(1000);
           continue;
         }
 
-        const status = err.status || 0;
-        lastError = err.text || err.message || `HTTP ${status}`;
-
         if (status === 404) {
           deadModels.add(currentModel);
+          releaseKey(keyObj.key);
           break;
         }
 
         attempts++;
-        if (status === 503 || status === 500 || status === 502) {
-          glog(`Кусок #${chunk.index + 1}: Модель перегружена (${status}). Ротация ключа...`, 'warn');
-          await sleep(2000);
-          continue;
-        }
 
+        // НАДЕЖНАЯ ПАУЗА ПРИ ЛИМИТАХ (429) ВМЕСТО ПАНИКИ
         if (status === 429) {
-          glog(`Ключ #${keyObj.index} уперся в лимит (429). Ротация ключа...`, 'warn');
-          await sleep(2500);
+          putKeyOnCooldown(keyObj.key, 45); // 45 секунд отдыха для этого ключа
+          releaseKey(keyObj.key);
+          glog(`Ключ #${keyObj.index} уперся в лимит (429). Ставим на паузу...`, 'warn');
+          await sleep(4000);
           continue;
         }
 
+        if (status === 503 || status === 500 || status === 502) {
+          putKeyOnCooldown(keyObj.key, 20);
+          releaseKey(keyObj.key);
+          glog(`Кусок #${chunk.index + 1}: Модель перегружена (${status}). Пауза перед повтором...`, 'warn');
+          await sleep(3500);
+          continue;
+        }
+
+        putKeyOnCooldown(keyObj.key, 30);
+        releaseKey(keyObj.key);
         await sleep(2000);
       }
     }
@@ -2007,7 +2043,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
       const nextM = modelQueue[mIdx + 1];
       if (!deadModels.has(nextM)) {
         glog(`Кусок #${chunk.index + 1}: Переход на [${nextM}]...`, 'warn');
-        await sleep(1000);
+        await sleep(1500);
       }
     }
   }
@@ -2230,7 +2266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const chunkMin = Math.max(1, Math.min(10, parseFloat(document.getElementById('gChunk')?.value) || 4));
     const par = parseInt(document.getElementById('gPar')?.value, 10) || 2;
-    const model = document.getElementById('gModelSelect')?.value || 'gemini-flash-latest';
+    const model = document.getElementById('gModelSelect')?.value || 'gemini-3.5-flash';
     const think = document.getElementById('gThink')?.value || '';
     const fallback = document.getElementById('gFallback')?.checked;
     const autoDl = document.getElementById('gAutoDownload')?.checked;
@@ -2297,7 +2333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
               const res = await transcribeChunkResilient(c, model, think, fallback, abortController.signal);
               const glued = joinBrokenLines(res.rawSub).text;
-              const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec, c.duration);
+              const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec);
               const resultText = shifted.join('\n');
 
               results[idx] = resultText;
@@ -2322,7 +2358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await Promise.all(pool);
 
         if (!abortController.signal.aborted) {
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v9.3 Final') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v9.4 Resilient') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             sort: useSort, 
@@ -2474,7 +2510,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v9.3 Final готов к работе.');
+  glog('ASS & SRT Fixer v9.4 Resilient готов к работе.');
 });
 </script>
 </body>

@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v9.5 Pro</title>
+<title>ASS & SRT Fixer v10.0 Pro Studio</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -171,6 +171,7 @@
   .btn-pri:hover { filter: brightness(1.1); }
   .btn-success { background: #059669; border-color: #059669; color: #fff; }
   .btn-danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+  .btn-warning { background: #d97706; border-color: #d97706; color: #fff; }
   .btn-mini { padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; }
 
   .chk { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; }
@@ -350,8 +351,9 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v9.5 Pro</span></h1>
-    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <h1>ASS & SRT Fixer <span class="badge">v10.0 Pro Studio</span></h1>
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-warning" id="btnHeaderMergeModal" type="button">🔗 Объединить субтитры</button>
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
       <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right;">
         Статус: <b id="gStatus" style="color:var(--accent-primary);">Готов к работе</b><br>
@@ -409,8 +411,11 @@
     <div class="card">
       <h2>2 · Настройки генерации & Очередь файлов</h2>
       <div>
-        <label for="gAudioFile">Аудиофайлы (можно выбрать сразу несколько):</label>
-        <input type="file" id="gAudioFile" accept="audio/*" multiple>
+        <label for="gAudioFile">Аудиофайлы (можно выбрать целую серию или несколько):</label>
+        <div class="row">
+          <input type="file" id="gAudioFile" accept="audio/*" multiple>
+          <button class="btn btn-warning" id="btnOpenTrimmerModal" type="button" style="flex:0 0 150px;" title="Обрезать нужный отрезок аудио (например выпавший кусок 11:55 - 15:58)">✂️ Обрезать кусок</button>
+        </div>
       </div>
 
       <div class="row">
@@ -520,7 +525,10 @@
     <div class="card">
       <h2>
         3 · Ручная починка субтитров
-        <button class="btn btn-mini" onclick="openStyleModal()" type="button">🎨 Стили .ass</button>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-mini btn-warning" onclick="openMergerModal()" type="button">🔗 Склеить 2 файла</button>
+          <button class="btn btn-mini" onclick="openStyleModal()" type="button">🎨 Стили .ass</button>
+        </div>
       </h2>
       <div>
         <label for="fxFile">Файл .ass / .srt / .txt:</label>
@@ -572,10 +580,11 @@
     <div class="card">
       <h2>4 · Результат текущей генерации</h2>
       <div>
-        <label>Вывод последней готовой серии:</label>
+        <label>Вывод последней готовой серии (или обрезанного куска):</label>
         <div class="out" id="gOut"><div style="color:var(--text-muted);">(пусто)</div></div>
       </div>
       <div class="row">
+        <button class="btn btn-warning" id="btnMergeGenResult" type="button" disabled title="Встроить этот результат в существующий файл серии с заполнением пробела">🔗 Объединить с файлом</button>
         <button class="btn btn-success" id="btnDlGenSrt" type="button" disabled>⬇ Скачать .srt</button>
         <button class="btn btn-pri" id="btnDlGen" type="button" disabled>⬇ Скачать .ass</button>
         <button class="btn" id="btnCopyGen" type="button" disabled>⧉ Копировать</button>
@@ -596,7 +605,120 @@
   </div>
 </div>
 
-<!-- МОДАЛЬНОЕ ОКНО СТИЛЕЙ ASS -->
+<!-- =========================================================================
+     МОДАЛЬНОЕ ОКНО 1: ОБРЕЗКА АУДИО (TRIMMER)
+     ========================================================================= -->
+<div class="modal-overlay" id="trimmerModalOverlay">
+  <div class="modal-dialog">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+      <h2 style="font-size:1.15rem; font-weight:700;">✂️ Удобная обрезка аудиофайла</h2>
+      <button class="btn btn-mini btn-danger" onclick="closeTrimmerModal()" type="button">✕ Закрыть</button>
+    </div>
+
+    <div>
+      <label for="trimFileInput">Аудиофайл для обрезки:</label>
+      <input type="file" id="trimFileInput" accept="audio/*">
+      <div id="trimFileInfo" style="font-size:0.8rem; color:var(--accent-primary); margin-top:4px;">Файл не загружен</div>
+    </div>
+
+    <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:10px;">
+      <b style="font-size:0.9rem; color:var(--text-main);">Выбор границ отрезка (формат мм:сс или чч:мм:сс):</b>
+      <div class="row">
+        <div>
+          <label for="trimStartInput">Начало (Start):</label>
+          <input type="text" id="trimStartInput" value="11:55" placeholder="Например: 11:55 или 00:11:55" oninput="updateTrimmerDuration()">
+        </div>
+        <div>
+          <label for="trimEndInput">Конец (End):</label>
+          <input type="text" id="trimEndInput" value="15:58" placeholder="Например: 15:58 или 00:15:58" oninput="updateTrimmerDuration()">
+        </div>
+        <div style="flex:0 0 150px;">
+          <label>Длительность:</label>
+          <div id="trimDurLabel" style="padding:8px; font-weight:bold; color:var(--accent-success); font-family:var(--font-mono); font-size:1rem;">04:03</div>
+        </div>
+      </div>
+
+      <div class="row" style="align-items:center;">
+        <button class="btn btn-pri" id="btnTrimPlay" onclick="toggleTrimPlay()" type="button">▶ Прослушать отрезок</button>
+        <span id="trimPlayStatus" style="font-size:0.8rem; color:var(--text-muted);">Готов к предпрослушиванию</span>
+      </div>
+
+      <div style="border-top:1px solid var(--border-color); padding-top:8px;">
+        <label class="chk" style="color:var(--accent-warning); font-weight:bold;">
+          <input type="checkbox" id="trimKeepOffset" checked>
+          Начать субтитры со времени отрезка (+11:55), а не с нуля
+        </label>
+        <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-left:22px;">
+          (Идеально для вставки куска: таймкоды сразу будут 00:11:55, и их можно будет в 1 клик объединить с основной серией!)
+        </span>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:6px;">
+      <button class="btn" id="btnTrimDownloadWav" onclick="downloadTrimmedWav()" type="button">💾 Скачать как .wav</button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn" onclick="closeTrimmerModal()" type="button">Отмена</button>
+        <button class="btn btn-success" id="btnTrimSendToQueue" onclick="sendTrimmedToQueue()" type="button" style="padding:10px 18px;">🚀 Отправить в генератор</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================================================
+     МОДАЛЬНОЕ ОКНО 2: ОБЪЕДИНЕНИЕ СУБТИТРОВ (MERGER)
+     ========================================================================= -->
+<div class="modal-overlay" id="mergerModalOverlay">
+  <div class="modal-dialog">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+      <h2 style="font-size:1.15rem; font-weight:700;">🔗 Умное объединение двух файлов субтитров</h2>
+      <button class="btn btn-mini btn-danger" onclick="closeMergerModal()" type="button">✕ Закрыть</button>
+    </div>
+
+    <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.4;">
+      Скрипт аккуратно встроит отрезок в пробел основного файла, устранит накладки, удалит дубли на стыках и разложит стримера и аниме по своим местам.
+    </p>
+
+    <div class="grid-layout" style="margin-bottom:0;">
+      <!-- ФАЙЛ 1 (Основной) -->
+      <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+        <b style="color:var(--accent-primary); font-size:0.9rem;">1. Основной файл серии (с пропуском):</b>
+        <input type="file" id="mergeBaseFileInput" accept=".ass,.srt,.txt">
+        <textarea id="mergeBasePaste" placeholder="Или вставьте сюда текст основного файла..."></textarea>
+      </div>
+
+      <!-- ФАЙЛ 2 (Кусок) -->
+      <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+        <b style="color:var(--accent-warning); font-size:0.9rem;">2. Вставляемый кусок:</b>
+        <div style="display:flex; gap:6px;">
+          <input type="file" id="mergeInsertFileInput" accept=".ass,.srt,.txt" style="flex:1;">
+          <button class="btn btn-mini btn-pri" onclick="useGenResultForMerge()" type="button" title="Использовать то, что только что сгенерировали в блоке 4">Из генератора</button>
+        </div>
+        <textarea id="mergeInsertPaste" placeholder="Или вставьте сюда строки вставляемого куска..."></textarea>
+      </div>
+    </div>
+
+    <div class="row" style="align-items:flex-end;">
+      <div>
+        <label for="mergeOffsetInput">Добавочный сдвиг времени для куска (если он был с 00:00):</label>
+        <input type="text" id="mergeOffsetInput" value="0" placeholder="0 или например 11:55">
+      </div>
+      <button class="btn btn-pri" id="btnExecuteMerge" onclick="executeSubtitleMerge()" type="button" style="padding:10px 18px;">⚡ Объединить файлы</button>
+    </div>
+
+    <div>
+      <label>Результат объединения:</label>
+      <div class="out" id="mergeOutBox"><div style="color:var(--text-muted);">(пусто)</div></div>
+    </div>
+
+    <div class="row">
+      <button class="btn btn-success" id="btnDlMergedSrt" onclick="downloadMergedFile('srt')" type="button" disabled>⬇ Скачать .srt</button>
+      <button class="btn btn-pri" id="btnDlMergedAss" onclick="downloadMergedFile('ass')" type="button" disabled>⬇ Скачать .ass</button>
+      <button class="btn" id="btnCopyMerged" onclick="copyMergedText()" type="button" disabled>⧉ Копировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО 3: СТИЛИ ASS -->
 <div class="modal-overlay" id="styleModalOverlay">
   <div class="modal-dialog">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
@@ -790,6 +912,16 @@ function fmtSrtTime(sec) {
          String(ms).padStart(3, '0');
 }
 
+function parseUserTime(str) {
+  if (!str) return 0;
+  const s = String(str).trim().replace(',', '.');
+  if (/^\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+  const parts = s.split(':').map(p => parseFloat(p) || 0);
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return 0;
+}
+
 function assToSrt(assText) {
   if (!assText) return '';
   const lines = assText.replace(/\r\n?/g, '\n').split('\n');
@@ -891,7 +1023,6 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
-/* СИСТЕМНЫЙ ПРОМПТ С ТОЧНОЙ СИНХРОНИЗАЦИЕЙ */
 const SYSTEM_PROMPT = `Ты — профессиональный переводчик и субтитровщик видео-реакций.
 Твоя задача: Полный дословный перевод всей звучащей речи на русский язык в формате субтитров ASS.
 
@@ -1247,11 +1378,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('ASS Fixer v9.5'), log: ['строк Dialogue не найдено'] };
+    return { text: assHeader('ASS Fixer v10.0'), log: ['строк Dialogue не найдено'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('ASS Fixer v9.5').replace(/\n+$/, '')
+    ? assHeader('ASS Fixer v10.0').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1310,6 +1441,91 @@ function fixAss(text, opts) {
 
   const outText = head + '\n' + ev.join('\n') + '\n';
   return { text: outText, log: ['строк: ' + resultRows.length] };
+}
+
+/* ==================== КОНЕЦ ПЕРВОЙ ЧАСТИ ==================== */
+  /* =========================================================================
+   АЛГОРИТМ УМНОГО ОБЪЕДИНЕНИЯ ДВУХ СУБТИТРОВ (SMART MERGE)
+   ========================================================================= */
+
+function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
+  let normBase = String(baseText || '').replace(/\r\n?/g, '\n');
+  if (!normBase.includes('Dialogue:') && normBase.includes('-->')) {
+    normBase = srtToAss(normBase);
+  }
+
+  let normInsert = String(insertText || '').replace(/\r\n?/g, '\n');
+  if (!normInsert.includes('Dialogue:') && normInsert.includes('-->')) {
+    normInsert = srtToAss(normInsert);
+  }
+
+  const baseLines = normBase.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l));
+  const insertLines = normInsert.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l));
+
+  const parsedBase = [];
+  baseLines.forEach(l => {
+    const item = smartParseAssLine(l);
+    if (item) {
+      const t1 = tparse(item.startStr);
+      const t2 = tparse(item.endStr);
+      if (t1) {
+        let s = t1.v;
+        let e = t2 ? t2.v : (s + 2.0);
+        parsedBase.push({ item, s, e });
+      }
+    }
+  });
+
+  const parsedInsert = [];
+  insertLines.forEach(l => {
+    const item = smartParseAssLine(l);
+    if (item) {
+      const t1 = tparse(item.startStr);
+      const t2 = tparse(item.endStr);
+      if (t1) {
+        let s = t1.v + (Number(offsetSec) || 0);
+        let e = (t2 ? t2.v : (s + 2.0)) + (Number(offsetSec) || 0);
+        parsedInsert.push({ item, s, e });
+      }
+    }
+  });
+
+  if (!parsedInsert.length) return normBase;
+  if (!parsedBase.length) {
+    const ev = parsedInsert.map(r => `Dialogue: 0,${fmtT(r.s)},${fmtT(r.e)},${r.item.style},${r.item.name},0,0,0,,${r.item.text}`);
+    return assHeader('Объединенные субтитры') + '\n' + ev.join('\n') + '\n';
+  }
+
+  // Объединяем оба массива в общий пул
+  const combined = [...parsedBase, ...parsedInsert];
+  const tracks = { Anime: [], Streamer: [] };
+
+  combined.forEach(p => {
+    if (tracks[p.item.style]) tracks[p.item.style].push(p);
+    else tracks.Anime.push(p);
+  });
+
+  const finalRows = [];
+
+  ['Anime', 'Streamer'].forEach(styleKey => {
+    const list = tracks[styleKey];
+    list.sort((a, b) => a.s - b.s || a.e - b.e);
+
+    // Удаляем дублирующиеся реплики на стыках в пределах 1.5 секунд
+    for (let i = list.length - 1; i > 0; i--) {
+      const cur = list[i], prev = list[i - 1];
+      if (Math.abs(cur.s - prev.s) < 1.5 && (cur.item.text === prev.item.text || cur.item.text.includes(prev.item.text) || prev.item.text.includes(cur.item.text))) {
+        list.splice(i, 1);
+      }
+    }
+
+    list.forEach(r => finalRows.push(r));
+  });
+
+  finalRows.sort((a, b) => a.s - b.s || a.e - b.e);
+
+  const ev = finalRows.map(r => `Dialogue: 0,${fmtT(r.s)},${fmtT(r.e)},${r.item.style},${r.item.name},0,0,0,,${r.item.text}`);
+  return assHeader('Объединенные субтитры v10.0') + '\n' + ev.join('\n') + '\n';
 }
 
 /* =========================================================================
@@ -1437,6 +1653,286 @@ window.closeStyleModal = function() {
   const modal = document.getElementById('styleModalOverlay');
   if (modal) modal.style.display = 'none';
 };
+
+/* =========================================================================
+   ЛОГИКА ОБРЕЗЧИКА АУДИО (TRIMMER)
+   ========================================================================= */
+
+const trimmerState = {
+  file: null,
+  audioBuf: null,
+  previewCtx: null,
+  previewSource: null,
+  isPlaying: false
+};
+
+window.openTrimmerModal = async function() {
+  const modal = document.getElementById('trimmerModalOverlay');
+  if (!modal) return;
+
+  const mainFileInput = document.getElementById('gAudioFile');
+  if (mainFileInput && mainFileInput.files && mainFileInput.files[0]) {
+    await loadAudioForTrimmer(mainFileInput.files[0]);
+  }
+
+  modal.style.display = 'flex';
+  updateTrimmerDuration();
+};
+
+window.closeTrimmerModal = function() {
+  stopTrimmedPreview();
+  const modal = document.getElementById('trimmerModalOverlay');
+  if (modal) modal.style.display = 'none';
+};
+
+async function loadAudioForTrimmer(file) {
+  trimmerState.file = file;
+  const infoEl = document.getElementById('trimFileInfo');
+  if (infoEl) infoEl.innerText = `Загружаю «${file.name}»...`;
+
+  try {
+    const ab = await file.arrayBuffer();
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    trimmerState.audioBuf = await ac.decodeAudioData(ab);
+    await ac.close();
+
+    const dur = trimmerState.audioBuf.duration;
+    if (infoEl) infoEl.innerText = `Загружен: «${file.name}» (Длина: ${mmss(dur)}, ${Math.round(dur)} сек)`;
+    
+    const endInput = document.getElementById('trimEndInput');
+    if (endInput && !endInput.value) {
+      endInput.value = mmss(Math.min(dur, 240));
+    }
+    updateTrimmerDuration();
+  } catch (e) {
+    if (infoEl) infoEl.innerText = `Ошибка загрузки аудио: ${e.message}`;
+  }
+}
+
+window.updateTrimmerDuration = function() {
+  const sStr = document.getElementById('trimStartInput')?.value || '0';
+  const eStr = document.getElementById('trimEndInput')?.value || '0';
+  const s = parseUserTime(sStr);
+  const e = parseUserTime(eStr);
+  const dur = Math.max(0, e - s);
+
+  const durLabel = document.getElementById('trimDurLabel');
+  if (durLabel) {
+    durLabel.innerText = `${mmss(dur)} (${Math.round(dur)}с)`;
+    durLabel.style.color = dur > 600 ? 'var(--accent-warning)' : 'var(--accent-success)';
+  }
+};
+
+window.toggleTrimPlay = function() {
+  if (trimmerState.isPlaying) {
+    stopTrimmedPreview();
+  } else {
+    startTrimmedPreview();
+  }
+};
+
+function startTrimmedPreview() {
+  if (!trimmerState.audioBuf) return alert('Сначала выберите аудиофайл!');
+  const s = parseUserTime(document.getElementById('trimStartInput')?.value);
+  const e = parseUserTime(document.getElementById('trimEndInput')?.value);
+  if (e <= s) return alert('Конец отрезка должен быть больше начала!');
+
+  stopTrimmedPreview();
+
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    trimmerState.previewCtx = ac;
+    const src = ac.createBufferSource();
+    src.buffer = trimmerState.audioBuf;
+    src.connect(ac.destination);
+    
+    src.onended = () => {
+      stopTrimmedPreview();
+    };
+
+    src.start(0, s, Math.min(e - s, 45));
+    trimmerState.previewSource = src;
+    trimmerState.isPlaying = true;
+
+    const btn = document.getElementById('btnTrimPlay');
+    const status = document.getElementById('trimPlayStatus');
+    if (btn) btn.innerText = '⏹ Стоп';
+    if (status) status.innerText = `Играет с ${mmss(s)} по ${mmss(Math.min(e, s + 45))}...`;
+  } catch (e) {
+    alert('Ошибка воспроизведения: ' + e.message);
+  }
+}
+
+function stopTrimmedPreview() {
+  try {
+    if (trimmerState.previewSource) {
+      trimmerState.previewSource.stop();
+      trimmerState.previewSource.disconnect();
+      trimmerState.previewSource = null;
+    }
+    if (trimmerState.previewCtx) {
+      trimmerState.previewCtx.close();
+      trimmerState.previewCtx = null;
+    }
+  } catch (e) {}
+
+  trimmerState.isPlaying = false;
+  const btn = document.getElementById('btnTrimPlay');
+  const status = document.getElementById('trimPlayStatus');
+  if (btn) btn.innerText = '▶ Прослушать отрезок';
+  if (status) status.innerText = 'Остановлено';
+}
+
+async function renderTrimmedSlice16k(startSec, endSec) {
+  if (!trimmerState.audioBuf) throw new Error('Аудио не загружено!');
+  const dur = endSec - startSec;
+  const targetSr = 16000;
+  const offlineCtx = new OfflineAudioContext(1, Math.ceil(dur * targetSr), targetSr);
+
+  const src = offlineCtx.createBufferSource();
+  src.buffer = trimmerState.audioBuf;
+  src.connect(offlineCtx.destination);
+  src.start(0, startSec, dur);
+
+  const rendered = await offlineCtx.startRendering();
+  return rendered.getChannelData(0);
+}
+
+window.downloadTrimmedWav = async function() {
+  const s = parseUserTime(document.getElementById('trimStartInput')?.value);
+  const e = parseUserTime(document.getElementById('trimEndInput')?.value);
+  if (e <= s) return alert('Конец отрезка должен быть больше начала!');
+
+  try {
+    const f32 = await renderTrimmedSlice16k(s, e);
+    const blob = f32ToWavBlob(f32, 16000);
+    const baseName = (trimmerState.file?.name || 'audio').replace(/\.[^/.]+$/, '');
+    const filename = `${baseName}_cut_${mmss(s)}-${mmss(e)}.wav`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    glog(`Обрезанный аудиофайл «${filename}» скачан на устройство.`);
+  } catch (err) {
+    alert('Ошибка экспорта: ' + err.message);
+  }
+};
+
+window.sendTrimmedToQueue = async function() {
+  const s = parseUserTime(document.getElementById('trimStartInput')?.value);
+  const e = parseUserTime(document.getElementById('trimEndInput')?.value);
+  if (e <= s) return alert('Конец отрезка должен быть больше начала!');
+
+  const keepOffset = document.getElementById('trimKeepOffset')?.checked ?? true;
+  glog(`Нарезаю отрезок [${mmss(s)}–${mmss(e)}] для отправки в генератор...`);
+
+  try {
+    const f32 = await renderTrimmedSlice16k(s, e);
+    const blob = f32ToWavBlob(f32, 16000);
+    const baseName = (trimmerState.file?.name || 'audio').replace(/\.[^/.]+$/, '');
+    const customName = `${baseName}_кусок_${mmss(s)}`;
+
+    const file = new File([blob], `${customName}.wav`, { type: 'audio/wav' });
+    if (keepOffset) {
+      file.customTimeOffset = s;
+    }
+
+    S.batchQueue = [{
+      file,
+      customName,
+      status: 'pending',
+      resultText: ''
+    }];
+
+    const queueCard = document.getElementById('batchQueueCard');
+    const singleBox = document.getElementById('singleNameBox');
+    const singleInput = document.getElementById('gSingleOutName');
+    if (queueCard) queueCard.style.display = 'none';
+    if (singleBox) singleBox.style.display = 'block';
+    if (singleInput) singleInput.value = customName;
+
+    closeTrimmerModal();
+    glog(`Отрезок [${mmss(s)}–${mmss(e)}] готов к генерации! Авто-сдвиг: ${keepOffset ? '+' + mmss(s) : '0'}. Нажмите "Прогнать (Старт)".`);
+    alert(`Отрезок [${mmss(s)}–${mmss(e)}] успешно подготовлен!\n\nТаймкоды начнутся строго с ${keepOffset ? mmss(s) : '00:00'}.\nНажмите кнопку "Прогнать (Старт)" для перевода этого куска.`);
+  } catch (err) {
+    alert('Ошибка нарезки: ' + err.message);
+  }
+};
+
+/* =========================================================================
+   ЛОГИКА ОБЪЕДИНЕНИЯ СУБТИТРОВ (MERGER UI)
+   ========================================================================= */
+
+let mergedResultAss = '';
+
+window.openMergerModal = function(preloadInsertText = null, suggestedOffset = 0) {
+  const modal = document.getElementById('mergerModalOverlay');
+  if (!modal) return;
+
+  if (preloadInsertText) {
+    const insertArea = document.getElementById('mergeInsertPaste');
+    if (insertArea) insertArea.value = preloadInsertText;
+  }
+
+  if (suggestedOffset) {
+    const offInput = document.getElementById('mergeOffsetInput');
+    if (offInput) offInput.value = mmss(suggestedOffset);
+  }
+
+  modal.style.display = 'flex';
+};
+
+window.closeMergerModal = function() {
+  const modal = document.getElementById('mergerModalOverlay');
+  if (modal) modal.style.display = 'none';
+};
+
+window.useGenResultForMerge = function() {
+  if (!S.genResult) return alert('В блоке 4 ещё нет сгенерированных субтитров!');
+  const p = document.getElementById('mergeInsertPaste');
+  if (p) p.value = S.genResult;
+  glog('Сгенерированный кусок вставлен в поле объединения.');
+};
+
+window.executeSubtitleMerge = function() {
+  const baseText = document.getElementById('mergeBasePaste')?.value?.trim();
+  const insertText = document.getElementById('mergeInsertPaste')?.value?.trim();
+  const offsetStr = document.getElementById('mergeOffsetInput')?.value?.trim();
+  const offsetSec = parseUserTime(offsetStr);
+
+  if (!baseText) return alert('Загрузите или вставьте текст основного файла серии!');
+  if (!insertText) return alert('Загрузите или вставьте текст вставляемого куска!');
+
+  glog(`Объединяю субтитры (сдвиг куска: ${offsetSec}с)...`);
+  mergedResultAss = smartMergeSubtitles(baseText, insertText, offsetSec);
+
+  const outBox = document.getElementById('mergeOutBox');
+  showNumbered(outBox, mergedResultAss);
+
+  document.getElementById('btnDlMergedSrt').disabled = false;
+  document.getElementById('btnDlMergedAss').disabled = false;
+  document.getElementById('btnCopyMerged').disabled = false;
+
+  glog('Субтитры успешно объединены без дублей и накладок!');
+};
+
+window.downloadMergedFile = function(ext = 'srt') {
+  if (!mergedResultAss) return;
+  const content = ext === 'srt' ? assToSrt(mergedResultAss) : mergedResultAss;
+  saveSubtitleFile('Серия_объединенная', content, ext);
+};
+
+window.copyMergedText = function() {
+  if (!mergedResultAss) return;
+  navigator.clipboard.writeText(mergedResultAss).then(() => glog('Объединенный текст скопирован!'));
+};
+
+/* =========================================================================
+   ОСНОВНОЕ ХРАНИЛИЩЕ И СОСТОЯНИЕ
+   ========================================================================= */
 
 const S = {
   keys: [],
@@ -1618,7 +2114,6 @@ function acquireKey() {
   const aliveKeys = S.keys.filter(k => !(S.stats[k] && (S.stats[k].dead || S.stats[k].daily)));
   if (!aliveKeys.length) return Promise.resolve(null);
 
-  // 1. Проверяем готовые ключи
   for (let offset = 0; offset < aliveKeys.length; offset++) {
     const idx = (keyRoundRobinIndex + offset) % aliveKeys.length;
     const k = aliveKeys[idx];
@@ -1636,7 +2131,6 @@ function acquireKey() {
     }
   }
 
-  // 2. Если все ключи на кулдауне, честно выжидаем скорейший кулдаун вместо спама
   let minWaitMs = Infinity;
   let bestKey = null;
   aliveKeys.forEach(k => {
@@ -1858,7 +2352,7 @@ function f32ToWavBlob(f32, sr) {
   return new Blob([ab], { type: 'audio/wav' });
 }
 
-/* СТОЙКАЯ ГЕНЕРАЦИЯ: УМНЫЙ RETRY БЕЗ ПАНИКИ */
+/* СТОЙКАЯ ГЕНЕРАЦИЯ: БЕЗ ЦЕНЗУРЫ И С АНТИ-ПАНИКОЙ */
 async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback, mainSignal) {
   const b64Promise = new Promise(r => {
     const reader = new FileReader();
@@ -1935,7 +2429,13 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
             { inline_data: { mime_type: 'audio/wav', data: b64Audio } }
           ]
         }],
-        generationConfig: { temperature: 0.0, topP: 0.95 }
+        generationConfig: { temperature: 0.0, topP: 0.95 },
+        safetySettings: [
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+        ]
       };
 
       if (attempts === 0 && (think === 'low' || think === 'high')) {
@@ -2015,7 +2515,6 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
 
         attempts++;
 
-        // ЧЕСТНАЯ ПАУЗА НА 429 ВМЕСТО ПАНИЧЕСКОГО СПАМА
         if (status === 429) {
           putKeyOnCooldown(keyObj.key, 45);
           releaseKey(keyObj.key);
@@ -2150,6 +2649,40 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('btnOpenStyleModal')?.addEventListener('click', openStyleModal);
+  document.getElementById('btnHeaderMergeModal')?.addEventListener('click', () => openMergerModal());
+  document.getElementById('btnOpenTrimmerModal')?.addEventListener('click', openTrimmerModal);
+
+  document.getElementById('trimFileInput')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) loadAudioForTrimmer(file);
+  });
+
+  document.getElementById('mergeBaseFileInput')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const area = document.getElementById('mergeBasePaste');
+      if (area) area.value = rd.result;
+    };
+    rd.readAsText(file);
+  });
+
+  document.getElementById('mergeInsertFileInput')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const area = document.getElementById('mergeInsertPaste');
+      if (area) area.value = rd.result;
+    };
+    rd.readAsText(file);
+  });
+
+  document.getElementById('btnMergeGenResult')?.addEventListener('click', () => {
+    if (!S.genResult) return alert('Сначала сгенерируйте субтитры!');
+    openMergerModal(S.genResult);
+  });
 
   document.getElementById('fxLimitMaxDur')?.addEventListener('change', (e) => {
     const inp = document.getElementById('fxMax');
@@ -2302,7 +2835,8 @@ document.addEventListener('DOMContentLoaded', () => {
           if (sNameInput && sNameInput.value.trim()) outName = sNameInput.value.trim();
         }
 
-        glog(`=== Очередь [${qIdx + 1}/${S.batchQueue.length}]: «${file.name}» ===`);
+        const baseTimeOffset = Number(file.customTimeOffset) || 0;
+        glog(`=== Очередь [${qIdx + 1}/${S.batchQueue.length}]: «${file.name}» ${baseTimeOffset > 0 ? '(Сдвиг отрезка: +' + mmss(baseTimeOffset) + ')' : ''} ===`);
         setStatus(`[${qIdx + 1}/${S.batchQueue.length}] Нарезка аудио...`);
 
         const chunks = await decodeAudioAndResample16k(file, chunkMin);
@@ -2332,7 +2866,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
               const res = await transcribeChunkResilient(c, model, think, fallback, abortController.signal);
               const glued = joinBrokenLines(res.rawSub).text;
-              const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec);
+              const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec + baseTimeOffset);
               const resultText = shifted.join('\n');
 
               results[idx] = resultText;
@@ -2357,7 +2891,17 @@ document.addEventListener('DOMContentLoaded', () => {
         await Promise.all(pool);
 
         if (!abortController.signal.aborted) {
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v9.5 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const missingChunks = [];
+          for (let i = 0; i < chunks.length; i++) {
+            if (!results[i]) missingChunks.push(i + 1);
+          }
+
+          if (missingChunks.length > 0) {
+            glog(`⚠️ ВНИМАНИЕ: Не удалось получить куски: #${missingChunks.join(', #')}!`, 'err');
+            alert(`Внимание! Кусок #${missingChunks.join(', #')} не расшифровался. Нажмите "Старт" ещё раз — готовые куски подтянутся из кэша за 1 секунду, и программа добьет только недостающие!`);
+          }
+
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.0 Pro') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             sort: useSort, 
@@ -2379,6 +2923,7 @@ document.addEventListener('DOMContentLoaded', () => {
           document.getElementById('btnDlGen').disabled = false;
           document.getElementById('btnDlGenSrt').disabled = false;
           document.getElementById('btnCopyGen').disabled = false;
+          document.getElementById('btnMergeGenResult').disabled = false;
 
           if (autoDl) {
             if (saveFormat === 'srt' || saveFormat === 'both') {
@@ -2509,7 +3054,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v9.5 Pro готов к работе.');
+  glog('ASS & SRT Fixer v10.0 Pro Studio готов к работе.');
 });
 </script>
 </body>

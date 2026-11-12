@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v10.0 Pro Studio</title>
+<title>ASS & SRT Fixer v10.1 Pro Stable</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -351,7 +351,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v10.0 Pro Studio</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v10.1 Pro Stable</span></h1>
     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button class="btn btn-warning" id="btnHeaderMergeModal" type="button">🔗 Объединить субтитры</button>
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
@@ -385,7 +385,7 @@
         </div>
       </div>
 
-      <!-- БЛОК ТАЙМАУТА -->
+      <!-- БЛОК ТАЙМАУТА: оптимизирован до 180с от зависаний -->
       <div class="card">
         <h2>⚡ Активные потоки & Таймаут</h2>
         <div class="row" style="align-items:center; margin-bottom:4px;">
@@ -394,7 +394,7 @@
             Авто-таймаут зависания:
           </label>
           <div style="flex:0 0 100px;">
-            <input type="number" id="inputTimeoutSec" min="60" max="3600" value="700" style="padding:4px 8px;">
+            <input type="number" id="inputTimeoutSec" min="60" max="600" value="180" style="padding:4px 8px;" title="Оптимально 150-180 сек. Если Google завис, сбросит и перезапустит поток">
           </div>
           <span style="font-size:0.8rem; color:var(--text-muted); flex:0 auto;">сек</span>
         </div>
@@ -411,10 +411,10 @@
     <div class="card">
       <h2>2 · Настройки генерации & Очередь файлов</h2>
       <div>
-        <label for="gAudioFile">Аудиофайлы (можно выбрать целую серию или несколько):</label>
+        <label for="gAudioFile">Аудиофайлы (можно выбрать сразу несколько):</label>
         <div class="row">
           <input type="file" id="gAudioFile" accept="audio/*" multiple>
-          <button class="btn btn-warning" id="btnOpenTrimmerModal" type="button" style="flex:0 0 150px;" title="Обрезать нужный отрезок аудио (например выпавший кусок 11:55 - 15:58)">✂️ Обрезать кусок</button>
+          <button class="btn btn-warning" id="btnOpenTrimmerModal" type="button" style="flex:0 0 150px;" title="Обрезать нужный отрезок аудио">✂️ Обрезать кусок</button>
         </div>
       </div>
 
@@ -470,7 +470,7 @@
           <label for="gModelSelect">Основная модель Gemini:</label>
           <select id="gModelSelect">
             <option value="gemini-flash-latest" selected>gemini-flash-latest (рекомендуется, быстрая)</option>
-            <option value="gemini-3.5-flash">gemini-3.5-flash (классическая)</option>
+            <option value="gemini-3.5-flash">gemini-3.5-flash (классическая, 35с/кусок)</option>
             <option value="gemini-3.6-flash">gemini-3.6-flash (быстрая 3.6)</option>
             <option value="gemini-3.7-flash">gemini-3.7-flash (надежная 3.7)</option>
             <option value="gemini-3.8-flash">gemini-3.8-flash (флагман 3.8)</option>
@@ -605,9 +605,7 @@
   </div>
 </div>
 
-<!-- =========================================================================
-     МОДАЛЬНОЕ ОКНО 1: ОБРЕЗКА АУДИО (TRIMMER)
-     ========================================================================= -->
+<!-- МОДАЛЬНОЕ ОКНО 1: ОБРЕЗКА АУДИО (TRIMMER) -->
 <div class="modal-overlay" id="trimmerModalOverlay">
   <div class="modal-dialog">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
@@ -626,15 +624,15 @@
       <div class="row">
         <div>
           <label for="trimStartInput">Начало (Start):</label>
-          <input type="text" id="trimStartInput" value="11:55" placeholder="Например: 11:55 или 00:11:55" oninput="updateTrimmerDuration()">
+          <input type="text" id="trimStartInput" value="23:25" placeholder="Например: 23:25" oninput="updateTrimmerDuration()">
         </div>
         <div>
           <label for="trimEndInput">Конец (End):</label>
-          <input type="text" id="trimEndInput" value="15:58" placeholder="Например: 15:58 или 00:15:58" oninput="updateTrimmerDuration()">
+          <input type="text" id="trimEndInput" value="27:30" placeholder="Например: 27:30" oninput="updateTrimmerDuration()">
         </div>
         <div style="flex:0 0 150px;">
           <label>Длительность:</label>
-          <div id="trimDurLabel" style="padding:8px; font-weight:bold; color:var(--accent-success); font-family:var(--font-mono); font-size:1rem;">04:03</div>
+          <div id="trimDurLabel" style="padding:8px; font-weight:bold; color:var(--accent-success); font-family:var(--font-mono); font-size:1rem;">04:05</div>
         </div>
       </div>
 
@@ -646,11 +644,8 @@
       <div style="border-top:1px solid var(--border-color); padding-top:8px;">
         <label class="chk" style="color:var(--accent-warning); font-weight:bold;">
           <input type="checkbox" id="trimKeepOffset" checked>
-          Начать субтитры со времени отрезка (+11:55), а не с нуля
+          Начать субтитры со времени отрезка, а не с нуля
         </label>
-        <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-left:22px;">
-          (Идеально для вставки куска: таймкоды сразу будут 00:11:55, и их можно будет в 1 клик объединить с основной серией!)
-        </span>
       </div>
     </div>
 
@@ -664,9 +659,7 @@
   </div>
 </div>
 
-<!-- =========================================================================
-     МОДАЛЬНОЕ ОКНО 2: ОБЪЕДИНЕНИЕ СУБТИТРОВ (MERGER)
-     ========================================================================= -->
+<!-- МОДАЛЬНОЕ ОКНО 2: ОБЪЕДИНЕНИЕ СУБТИТРОВ (MERGER) -->
 <div class="modal-overlay" id="mergerModalOverlay">
   <div class="modal-dialog">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
@@ -674,33 +667,27 @@
       <button class="btn btn-mini btn-danger" onclick="closeMergerModal()" type="button">✕ Закрыть</button>
     </div>
 
-    <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.4;">
-      Скрипт аккуратно встроит отрезок в пробел основного файла, устранит накладки, удалит дубли на стыках и разложит стримера и аниме по своим местам.
-    </p>
-
     <div class="grid-layout" style="margin-bottom:0;">
-      <!-- ФАЙЛ 1 (Основной) -->
       <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
-        <b style="color:var(--accent-primary); font-size:0.9rem;">1. Основной файл серии (с пропуском):</b>
+        <b style="color:var(--accent-primary); font-size:0.9rem;">1. Основной файл серии:</b>
         <input type="file" id="mergeBaseFileInput" accept=".ass,.srt,.txt">
-        <textarea id="mergeBasePaste" placeholder="Или вставьте сюда текст основного файла..."></textarea>
+        <textarea id="mergeBasePaste" placeholder="Или вставьте текст основного файла..."></textarea>
       </div>
 
-      <!-- ФАЙЛ 2 (Кусок) -->
       <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
         <b style="color:var(--accent-warning); font-size:0.9rem;">2. Вставляемый кусок:</b>
         <div style="display:flex; gap:6px;">
           <input type="file" id="mergeInsertFileInput" accept=".ass,.srt,.txt" style="flex:1;">
-          <button class="btn btn-mini btn-pri" onclick="useGenResultForMerge()" type="button" title="Использовать то, что только что сгенерировали в блоке 4">Из генератора</button>
+          <button class="btn btn-mini btn-pri" onclick="useGenResultForMerge()" type="button">Из генератора</button>
         </div>
-        <textarea id="mergeInsertPaste" placeholder="Или вставьте сюда строки вставляемого куска..."></textarea>
+        <textarea id="mergeInsertPaste" placeholder="Или вставьте строки куска..."></textarea>
       </div>
     </div>
 
     <div class="row" style="align-items:flex-end;">
       <div>
-        <label for="mergeOffsetInput">Добавочный сдвиг времени для куска (если он был с 00:00):</label>
-        <input type="text" id="mergeOffsetInput" value="0" placeholder="0 или например 11:55">
+        <label for="mergeOffsetInput">Добавочный сдвиг времени для куска (если нужно):</label>
+        <input type="text" id="mergeOffsetInput" value="0" placeholder="0 или например 23:25">
       </div>
       <button class="btn btn-pri" id="btnExecuteMerge" onclick="executeSubtitleMerge()" type="button" style="padding:10px 18px;">⚡ Объединить файлы</button>
     </div>
@@ -729,15 +716,9 @@
     <div>
       <label>Живое превью:</label>
       <div class="preview-screen" id="previewScreen">
-        <div class="preview-video-area">
-          <span>Окно видео (16:9)</span>
-        </div>
-        <div class="preview-sub-streamer" id="previewSubStreamer">
-          А она вся такая милая и опрятная...
-        </div>
-        <div class="preview-sub-anime" id="previewSubAnime">
-          Весьма хорошенькая...
-        </div>
+        <div class="preview-video-area"><span>Окно видео (16:9)</span></div>
+        <div class="preview-sub-streamer" id="previewSubStreamer">А она вся такая милая и опрятная...</div>
+        <div class="preview-sub-anime" id="previewSubAnime">Весьма хорошенькая...</div>
       </div>
     </div>
 
@@ -751,48 +732,24 @@
       <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
         <b style="color:var(--accent-primary); font-size:0.9rem;">Стример (Сверху экрана)</b>
         <div class="row">
-          <div>
-            <label>Размер шрифта:</label>
-            <input type="number" id="stSize" min="20" max="160" value="110" oninput="handleStyleInputChange()">
-          </div>
-          <div>
-            <label>Отступ сверху (MarginV):</label>
-            <input type="number" id="stMarginV" min="0" max="300" value="30" oninput="handleStyleInputChange()">
-          </div>
+          <div><label>Размер шрифта:</label><input type="number" id="stSize" min="20" max="160" value="110" oninput="handleStyleInputChange()"></div>
+          <div><label>Отступ сверху (MarginV):</label><input type="number" id="stMarginV" min="0" max="300" value="30" oninput="handleStyleInputChange()"></div>
         </div>
         <div class="row">
-          <div>
-            <label>Цвет текста:</label>
-            <input type="color" id="stColor" value="#ffffff" style="height:38px; padding:2px;" oninput="handleStyleInputChange()">
-          </div>
-          <div>
-            <label>Обводка (px):</label>
-            <input type="number" id="stOutline" min="0" max="8" value="3" oninput="handleStyleInputChange()">
-          </div>
+          <div><label>Цвет текста:</label><input type="color" id="stColor" value="#ffffff" style="height:38px; padding:2px;" oninput="handleStyleInputChange()"></div>
+          <div><label>Обводка (px):</label><input type="number" id="stOutline" min="0" max="8" value="3" oninput="handleStyleInputChange()"></div>
         </div>
       </div>
 
       <div style="background:var(--bg-field); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
         <b style="color:var(--accent-warning); font-size:0.9rem;">Аниме / Видео (Снизу экрана)</b>
         <div class="row">
-          <div>
-            <label>Размер шрифта:</label>
-            <input type="number" id="anSize" min="20" max="160" value="110" oninput="handleStyleInputChange()">
-          </div>
-          <div>
-            <label>Отступ снизу (MarginV):</label>
-            <input type="number" id="anMarginV" min="0" max="300" value="30" oninput="handleStyleInputChange()">
-          </div>
+          <div><label>Размер шрифта:</label><input type="number" id="anSize" min="20" max="160" value="110" oninput="handleStyleInputChange()"></div>
+          <div><label>Отступ снизу (MarginV):</label><input type="number" id="anMarginV" min="0" max="300" value="30" oninput="handleStyleInputChange()"></div>
         </div>
         <div class="row">
-          <div>
-            <label>Цвет текста:</label>
-            <input type="color" id="anColor" value="#ffffff" style="height:38px; padding:2px;" oninput="handleStyleInputChange()">
-          </div>
-          <div>
-            <label>Обводка (px):</label>
-            <input type="number" id="anOutline" min="0" max="8" value="3" oninput="handleStyleInputChange()">
-          </div>
+          <div><label>Цвет текста:</label><input type="color" id="anColor" value="#ffffff" style="height:38px; padding:2px;" oninput="handleStyleInputChange()"></div>
+          <div><label>Обводка (px):</label><input type="number" id="anOutline" min="0" max="8" value="3" oninput="handleStyleInputChange()"></div>
         </div>
       </div>
     </div>
@@ -807,17 +764,12 @@
 <script>
 'use strict';
 
-/* =========================================================================
-   АВТОРИЗАЦИЯ И ХРАНИЛИЩЕ
-   ========================================================================= */
-
 const AUTH_TOKEN = "Njk2MzY5";
 const APP_STORAGE_KEYS = new Set(['af_auth_unlocked', 'af_user_styles', 'af_keys', 'af_stats', 'af_cache']);
 
 function checkAuthPin() {
   const input = document.getElementById('authPinInput');
   const val = input ? input.value.trim() : '';
-  
   if (btoa(val) === AUTH_TOKEN) {
     localStorage.setItem('af_auth_unlocked', 'true');
     unlockApp();
@@ -850,10 +802,6 @@ function handleFormatChange() {
     }
   }
 }
-
-/* =========================================================================
-   ЯДРО, КОНВЕРТЕРЫ ASS <-> SRT И СИСТЕМНЫЙ ПРОМПТ
-   ========================================================================= */
 
 const RES_W = 1920;
 const RES_H = 1080;
@@ -1085,7 +1033,7 @@ function renderActiveStreamsPanel() {
   let html = '';
   activeChunkWorkers.forEach((val, cNum) => {
     const elapsed = Math.round((Date.now() - val.startTime) / 1000);
-    const timeColor = elapsed >= 700 ? 'var(--accent-danger)' : (elapsed >= 300 ? 'var(--accent-warning)' : 'var(--accent-primary)');
+    const timeColor = elapsed >= 180 ? 'var(--accent-danger)' : (elapsed >= 90 ? 'var(--accent-warning)' : 'var(--accent-primary)');
 
     html += `
       <div class="key-item" style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px;">
@@ -1296,7 +1244,6 @@ function joinBrokenLines(text) {
   return { text: out.join('\n') };
 }
 
-/* ТОЧНЫЙ МАТЕМАТИЧЕСКИЙ СДВИГ С АВТО-РАСПАКОВКОЙ СБРОСОВ МИНУТ */
 function shiftLines(lines, off) {
   const out = [];
   const parsed = [];
@@ -1318,7 +1265,6 @@ function shiftLines(lines, off) {
     parsed.push({ item, s, e });
   }
 
-  // Разделяем дорожки, чтобы авто-распаковка минут работала строго внутри каждого спикера
   const tracks = { Anime: [], Streamer: [] };
   parsed.forEach(p => {
     if (tracks[p.item.style]) tracks[p.item.style].push(p);
@@ -1333,9 +1279,6 @@ function shiftLines(lines, off) {
     for (let i = 0; i < list.length; i++) {
       const cur = list[i];
 
-      // Если в выводе модели секунды внезапно прыгнули назад более чем на 18 сек
-      // (например, предыдущая фраза была на 56с, а следующая пришла как 21с),
-      // значит Gemini сбросила минуты в 00! Автоматически восстанавливаем минуты:
       while (lastRawStart >= 0 && (cur.s + minuteOffset) < (lastRawStart - 18)) {
         minuteOffset += 60;
       }
@@ -1352,7 +1295,6 @@ function shiftLines(lines, off) {
   return out;
 }
 
-/* БЕРЕЖНАЯ СБОРКА: СТРИМЕР И АНИМЕ ЖИВУТ НЕЗАВИСИМО */
 function fixAss(text, opts) {
   const o = Object.assign({ 
     sort: true, 
@@ -1378,11 +1320,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('ASS Fixer v10.0'), log: ['строк Dialogue не найдено'] };
+    return { text: assHeader('ASS Fixer v10.1'), log: ['строк Dialogue не найдено'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('ASS Fixer v10.0').replace(/\n+$/, '')
+    ? assHeader('ASS Fixer v10.1').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1444,11 +1386,7 @@ function fixAss(text, opts) {
 }
 
 /* ==================== КОНЕЦ ПЕРВОЙ ЧАСТИ ==================== */
-  /* =========================================================================
-   АЛГОРИТМ УМНОГО ОБЪЕДИНЕНИЯ ДВУХ СУБТИТРОВ (SMART MERGE)
-   ========================================================================= */
-
-function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
+  function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
   let normBase = String(baseText || '').replace(/\r\n?/g, '\n');
   if (!normBase.includes('Dialogue:') && normBase.includes('-->')) {
     normBase = srtToAss(normBase);
@@ -1496,7 +1434,6 @@ function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
     return assHeader('Объединенные субтитры') + '\n' + ev.join('\n') + '\n';
   }
 
-  // Объединяем оба массива в общий пул
   const combined = [...parsedBase, ...parsedInsert];
   const tracks = { Anime: [], Streamer: [] };
 
@@ -1511,7 +1448,6 @@ function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
     const list = tracks[styleKey];
     list.sort((a, b) => a.s - b.s || a.e - b.e);
 
-    // Удаляем дублирующиеся реплики на стыках в пределах 1.5 секунд
     for (let i = list.length - 1; i > 0; i--) {
       const cur = list[i], prev = list[i - 1];
       if (Math.abs(cur.s - prev.s) < 1.5 && (cur.item.text === prev.item.text || cur.item.text.includes(prev.item.text) || prev.item.text.includes(cur.item.text))) {
@@ -1525,12 +1461,8 @@ function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
   finalRows.sort((a, b) => a.s - b.s || a.e - b.e);
 
   const ev = finalRows.map(r => `Dialogue: 0,${fmtT(r.s)},${fmtT(r.e)},${r.item.style},${r.item.name},0,0,0,,${r.item.text}`);
-  return assHeader('Объединенные субтитры v10.0') + '\n' + ev.join('\n') + '\n';
+  return assHeader('Объединенные субтитры v10.1') + '\n' + ev.join('\n') + '\n';
 }
-
-/* =========================================================================
-   СТИЛИ, ПРЕВЬЮ И ИНТЕРФЕЙС
-   ========================================================================= */
 
 function loadSavedStyles() {
   try {
@@ -1654,10 +1586,6 @@ window.closeStyleModal = function() {
   if (modal) modal.style.display = 'none';
 };
 
-/* =========================================================================
-   ЛОГИКА ОБРЕЗЧИКА АУДИО (TRIMMER)
-   ========================================================================= */
-
 const trimmerState = {
   file: null,
   audioBuf: null,
@@ -1698,11 +1626,6 @@ async function loadAudioForTrimmer(file) {
 
     const dur = trimmerState.audioBuf.duration;
     if (infoEl) infoEl.innerText = `Загружен: «${file.name}» (Длина: ${mmss(dur)}, ${Math.round(dur)} сек)`;
-    
-    const endInput = document.getElementById('trimEndInput');
-    if (endInput && !endInput.value) {
-      endInput.value = mmss(Math.min(dur, 240));
-    }
     updateTrimmerDuration();
   } catch (e) {
     if (infoEl) infoEl.innerText = `Ошибка загрузки аудио: ${e.message}`;
@@ -1746,10 +1669,7 @@ function startTrimmedPreview() {
     src.buffer = trimmerState.audioBuf;
     src.connect(ac.destination);
     
-    src.onended = () => {
-      stopTrimmedPreview();
-    };
-
+    src.onended = () => { stopTrimmedPreview(); };
     src.start(0, s, Math.min(e - s, 45));
     trimmerState.previewSource = src;
     trimmerState.isPlaying = true;
@@ -1815,7 +1735,7 @@ window.downloadTrimmedWav = async function() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    glog(`Обрезанный аудиофайл «${filename}» скачан на устройство.`);
+    glog(`Обрезанный аудиофайл «${filename}» скачан.`);
   } catch (err) {
     alert('Ошибка экспорта: ' + err.message);
   }
@@ -1827,7 +1747,7 @@ window.sendTrimmedToQueue = async function() {
   if (e <= s) return alert('Конец отрезка должен быть больше начала!');
 
   const keepOffset = document.getElementById('trimKeepOffset')?.checked ?? true;
-  glog(`Нарезаю отрезок [${mmss(s)}–${mmss(e)}] для отправки в генератор...`);
+  glog(`Нарезаю отрезок [${mmss(s)}–${mmss(e)}] для генератора...`);
 
   try {
     const f32 = await renderTrimmedSlice16k(s, e);
@@ -1855,16 +1775,12 @@ window.sendTrimmedToQueue = async function() {
     if (singleInput) singleInput.value = customName;
 
     closeTrimmerModal();
-    glog(`Отрезок [${mmss(s)}–${mmss(e)}] готов к генерации! Авто-сдвиг: ${keepOffset ? '+' + mmss(s) : '0'}. Нажмите "Прогнать (Старт)".`);
-    alert(`Отрезок [${mmss(s)}–${mmss(e)}] успешно подготовлен!\n\nТаймкоды начнутся строго с ${keepOffset ? mmss(s) : '00:00'}.\nНажмите кнопку "Прогнать (Старт)" для перевода этого куска.`);
+    glog(`Отрезок [${mmss(s)}–${mmss(e)}] готов! Сдвиг: ${keepOffset ? '+' + mmss(s) : '0'}. Нажмите "Старт".`);
+    alert(`Отрезок [${mmss(s)}–${mmss(e)}] готов!\n\nТаймкоды начнутся строго с ${keepOffset ? mmss(s) : '00:00'}.\nНажмите кнопку "Прогнать (Старт)".`);
   } catch (err) {
     alert('Ошибка нарезки: ' + err.message);
   }
 };
-
-/* =========================================================================
-   ЛОГИКА ОБЪЕДИНЕНИЯ СУБТИТРОВ (MERGER UI)
-   ========================================================================= */
 
 let mergedResultAss = '';
 
@@ -1891,7 +1807,7 @@ window.closeMergerModal = function() {
 };
 
 window.useGenResultForMerge = function() {
-  if (!S.genResult) return alert('В блоке 4 ещё нет сгенерированных субтитров!');
+  if (!S.genResult) return alert('В блоке 4 ещё нет субтитров!');
   const p = document.getElementById('mergeInsertPaste');
   if (p) p.value = S.genResult;
   glog('Сгенерированный кусок вставлен в поле объединения.');
@@ -1903,10 +1819,10 @@ window.executeSubtitleMerge = function() {
   const offsetStr = document.getElementById('mergeOffsetInput')?.value?.trim();
   const offsetSec = parseUserTime(offsetStr);
 
-  if (!baseText) return alert('Загрузите или вставьте текст основного файла серии!');
-  if (!insertText) return alert('Загрузите или вставьте текст вставляемого куска!');
+  if (!baseText) return alert('Загрузите основной файл серии!');
+  if (!insertText) return alert('Загрузите вставляемый кусок!');
 
-  glog(`Объединяю субтитры (сдвиг куска: ${offsetSec}с)...`);
+  glog(`Объединяю субтитры (сдвиг: ${offsetSec}с)...`);
   mergedResultAss = smartMergeSubtitles(baseText, insertText, offsetSec);
 
   const outBox = document.getElementById('mergeOutBox');
@@ -1916,7 +1832,7 @@ window.executeSubtitleMerge = function() {
   document.getElementById('btnDlMergedAss').disabled = false;
   document.getElementById('btnCopyMerged').disabled = false;
 
-  glog('Субтитры успешно объединены без дублей и накладок!');
+  glog('Субтитры успешно объединены!');
 };
 
 window.downloadMergedFile = function(ext = 'srt') {
@@ -1929,10 +1845,6 @@ window.copyMergedText = function() {
   if (!mergedResultAss) return;
   navigator.clipboard.writeText(mergedResultAss).then(() => glog('Объединенный текст скопирован!'));
 };
-
-/* =========================================================================
-   ОСНОВНОЕ ХРАНИЛИЩЕ И СОСТОЯНИЕ
-   ========================================================================= */
 
 const S = {
   keys: [],
@@ -2108,7 +2020,6 @@ window.handleAddKeyClick = function() {
   }
 };
 
-/* УМНАЯ ВЫДАЧА КЛЮЧЕЙ С ЗАЩИТОЙ ОТ ПАНИКИ И 429 */
 function acquireKey() {
   const now = Date.now();
   const aliveKeys = S.keys.filter(k => !(S.stats[k] && (S.stats[k].dead || S.stats[k].daily)));
@@ -2172,7 +2083,7 @@ function releaseKey(k) {
   }
 }
 
-function putKeyOnCooldown(key, sec = 45) {
+function putKeyOnCooldown(key, sec = 30) {
   keyCooldowns.set(key, Date.now() + sec * 1000);
 }
 
@@ -2352,7 +2263,6 @@ function f32ToWavBlob(f32, sr) {
   return new Blob([ab], { type: 'audio/wav' });
 }
 
-/* СТОЙКАЯ ГЕНЕРАЦИЯ: БЕЗ ЦЕНЗУРЫ И С АНТИ-ПАНИКОЙ */
 async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback, mainSignal) {
   const b64Promise = new Promise(r => {
     const reader = new FileReader();
@@ -2373,6 +2283,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
   }
 
   let lastError = null;
+  const timeoutSec = parseInt(document.getElementById('inputTimeoutSec')?.value, 10) || 180;
 
   for (let mIdx = 0; mIdx < modelQueue.length; mIdx++) {
     const currentModel = modelQueue[mIdx];
@@ -2410,7 +2321,6 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
 
       let timeoutTimer = null;
       const isTimeoutOn = document.getElementById('chkAutoTimeout')?.checked ?? true;
-      const timeoutSec = parseInt(document.getElementById('inputTimeoutSec')?.value, 10) || 700;
 
       if (isTimeoutOn && timeoutSec > 0) {
         timeoutTimer = setTimeout(() => chunkController.abort('TIMEOUT'), timeoutSec * 1000);
@@ -2500,9 +2410,9 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
 
         const abortReason = chunkController.signal.reason;
         if (chunkController.signal.aborted && (abortReason === 'TIMEOUT' || abortReason === 'MANUAL_RESTART')) {
-          putKeyOnCooldown(keyObj.key, 30);
+          putKeyOnCooldown(keyObj.key, 25);
           releaseKey(keyObj.key);
-          glog(`Кусок #${chunk.index + 1}: Сброс. Повтор...`, 'warn');
+          glog(`Кусок #${chunk.index + 1}: ${abortReason === 'TIMEOUT' ? 'Таймаут зависания (' + timeoutSec + 'с)' : 'Ручной сброс'}. Повтор потока...`, 'warn');
           await sleep(1000);
           continue;
         }
@@ -2518,20 +2428,21 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
         if (status === 429) {
           putKeyOnCooldown(keyObj.key, 45);
           releaseKey(keyObj.key);
-          glog(`Ключ #${keyObj.index} исчерпал лимит (429). Пауза ключа...`, 'warn');
+          glog(`Ключ #${keyObj.index} уперся в лимит (429). Пауза ключа...`, 'warn');
           await sleep(3500);
           continue;
         }
 
         if (status === 503 || status === 500 || status === 502) {
-          putKeyOnCooldown(keyObj.key, 20);
+          putKeyOnCooldown(keyObj.key, 15);
           releaseKey(keyObj.key);
-          glog(`Кусок #${chunk.index + 1}: Модель перегружена (${status}). Пауза перед повтором...`, 'warn');
-          await sleep(3000);
+          const backoffSec = Math.min(20, 4 + attempts * 4);
+          glog(`Кусок #${chunk.index + 1}: Модель перегружена (${status}). Пауза ${backoffSec}с перед повтором...`, 'warn');
+          await sleep(backoffSec * 1000);
           continue;
         }
 
-        putKeyOnCooldown(keyObj.key, 30);
+        putKeyOnCooldown(keyObj.key, 25);
         releaseKey(keyObj.key);
         await sleep(2000);
       }
@@ -2621,10 +2532,6 @@ function applyNamingPattern() {
   renderBatchQueue();
   glog(`Сквозная нумерация применена: с ${startEp} по ${startEp + S.batchQueue.length - 1} серию.`);
 }
-
-/* =========================================================================
-   ИНИЦИАЛИЗАЦИЯ И СОБЫТИЯ
-   ========================================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
   cleanupStorageQuota();
@@ -2782,7 +2689,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.innerHTML = '';
   });
 
-  // Запуск генерации
+  // ЗАПУСК ГЕНЕРАЦИИ С ЗАЩИТОЙ ОТ ПЕРЕХОДА НА СЛЕДУЮЩУЮ СЕРИЮ ПРИ ОШИБКЕ
   document.getElementById('btnStartGen')?.addEventListener('click', async () => {
     if (!S.keys.length) return alert('Сначала добавьте хотя бы один ключ в блоке 1!');
     if (!S.batchQueue.length) return alert('Выберите аудиофайл(ы) в блоке 2!');
@@ -2848,41 +2755,44 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMultiStreamStatus();
 
         let activeIndex = 0;
+        const processChunk = async (idx) => {
+          const c = chunks[idx];
+          const cacheKey = cachePrefix + idx;
+
+          if (S.cache[cacheKey]) {
+            results[idx] = S.cache[cacheKey];
+            totalCompletedChunks++;
+            glog(`Кусок #${idx + 1} (${mmss(c.startSec)}–${mmss(c.endSec)}) взят из кэша.`);
+            updateMultiStreamStatus();
+            return;
+          }
+
+          try {
+            const res = await transcribeChunkResilient(c, model, think, fallback, abortController.signal);
+            const glued = joinBrokenLines(res.rawSub).text;
+            const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec + baseTimeOffset);
+            const resultText = shifted.join('\n');
+
+            results[idx] = resultText;
+            S.cache[cacheKey] = resultText;
+
+            const cacheKeys = Object.keys(S.cache);
+            if (cacheKeys.length > 60) delete S.cache[cacheKeys[0]];
+            try { localStorage.setItem('af_cache', JSON.stringify(S.cache)); } catch (e) {}
+
+            totalCompletedChunks++;
+            glog(`Кусок #${idx + 1} готов: ${shifted.length} строк · ключ #${res.keyUsed} · [${res.modelUsed}]`);
+            updateMultiStreamStatus();
+          } catch (err) {
+            glog(`Кусок #${idx + 1}: СБОЙ (${err.message})`, 'err');
+          }
+        };
+
         const worker = async () => {
           while (activeIndex < chunks.length) {
             if (abortController.signal.aborted) break;
             const idx = activeIndex++;
-            const c = chunks[idx];
-            const cacheKey = cachePrefix + idx;
-
-            if (S.cache[cacheKey]) {
-              results[idx] = S.cache[cacheKey];
-              totalCompletedChunks++;
-              glog(`Кусок #${idx + 1} (${mmss(c.startSec)}–${mmss(c.endSec)}) взят из кэша.`);
-              updateMultiStreamStatus();
-              continue;
-            }
-
-            try {
-              const res = await transcribeChunkResilient(c, model, think, fallback, abortController.signal);
-              const glued = joinBrokenLines(res.rawSub).text;
-              const shifted = shiftLines(glued.split('\n').filter(l => /^\s*Dialogue\s*:/i.test(l)), c.startSec + baseTimeOffset);
-              const resultText = shifted.join('\n');
-
-              results[idx] = resultText;
-              S.cache[cacheKey] = resultText;
-
-              const cacheKeys = Object.keys(S.cache);
-              if (cacheKeys.length > 60) delete S.cache[cacheKeys[0]];
-
-              try { localStorage.setItem('af_cache', JSON.stringify(S.cache)); } catch (e) {}
-
-              totalCompletedChunks++;
-              glog(`Кусок #${idx + 1} готов: ${shifted.length} строк · ключ #${res.keyUsed} · [${res.modelUsed}]`);
-              updateMultiStreamStatus();
-            } catch (err) {
-              glog(`Кусок #${idx + 1}: СБОЙ (${err.message})`, 'err');
-            }
+            await processChunk(idx);
           }
         };
 
@@ -2890,18 +2800,40 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < Math.min(par, chunks.length); i++) pool.push(worker());
         await Promise.all(pool);
 
+        // АВТО-ПОВТОР ДЛЯ СОРВАВШИХСЯ КУСКОВ (НЕ БРОСАЕМ СЕРИЮ!)
+        let retryRound = 0;
+        while (!abortController.signal.aborted && retryRound < 3) {
+          const failedIndices = [];
+          for (let i = 0; i < chunks.length; i++) {
+            if (!results[i]) failedIndices.push(i);
+          }
+          if (failedIndices.length === 0) break;
+
+          retryRound++;
+          glog(`⚠️ Найдено недогруженных кусков: #${failedIndices.map(i => i + 1).join(', #')}. Пауза 10с перед авто-дожимом...`, 'warn');
+          await sleep(10000);
+
+          for (let fIdx of failedIndices) {
+            if (abortController.signal.aborted) break;
+            glog(`🔄 Авто-повтор куска #${fIdx + 1}...`);
+            await processChunk(fIdx);
+          }
+        }
+
         if (!abortController.signal.aborted) {
           const missingChunks = [];
           for (let i = 0; i < chunks.length; i++) {
             if (!results[i]) missingChunks.push(i + 1);
           }
 
+          // ЕСЛИ КУСОК ТАК И НЕ ДОБИТ — ОСТАНАВЛИВАЕМ ОЧЕРЕДЬ, ЧТОБЫ НЕ ПОРТИТЬ СЛЕДУЮЩИЕ СЕРИИ
           if (missingChunks.length > 0) {
-            glog(`⚠️ ВНИМАНИЕ: Не удалось получить куски: #${missingChunks.join(', #')}!`, 'err');
-            alert(`Внимание! Кусок #${missingChunks.join(', #')} не расшифровался. Нажмите "Старт" ещё раз — готовые куски подтянутся из кэша за 1 секунду, и программа добьет только недостающие!`);
+            glog(`❌ ОЧЕРЕДЬ ПРИОСТАНОВЛЕНА: Кусок #${missingChunks.join(', #')} не ответил из-за перегрузки Google. Запустите серию снова (готовые куски подтянутся из кэша мгновенно)!`, 'err');
+            alert(`Внимание! Не удалось расшифровать кусок #${missingChunks.join(', #')} из-за перегрузки Google.\n\nОчередь остановлена, чтобы не портить файл. Нажмите "Старт" ещё раз — готовые куски возьмутся из кэша за 1 секунду, и программа добьет только этот кусок!`);
+            break;
           }
 
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.0 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.1 Pro') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             sort: useSort, 
@@ -2943,8 +2875,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (!abortController.signal.aborted) {
-        setStatus('Вся очередь успешно завершена!');
-        glog('=== ВСЯ ОЧЕРЕДЬ ФАЙЛОВ УСПЕШНО ОБРАБОТАНА! ===');
+        setStatus('Очередь обработана!');
+        glog('=== ОБРАБОТКА УСПЕШНО ЗАВЕРШЕНА! ===');
       }
     } catch (e) {
       glog('Очередь прервана: ' + e.message, 'err');
@@ -2990,7 +2922,6 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.genResult).then(() => glog('Субтитры скопированы в буфер!'));
   });
 
-  // Ручной фиксер (БЛОК 3)
   document.getElementById('fxFile')?.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -3054,7 +2985,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v10.0 Pro Studio готов к работе.');
+  glog('ASS & SRT Fixer v10.1 Pro Stable готов к работе.');
 });
 </script>
 </body>

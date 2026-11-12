@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v10.1 Pro Stable</title>
+<title>ASS & SRT Fixer v10.2 Anti-Rush Pro</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -351,7 +351,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v10.1 Pro Stable</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v10.2 Anti-Rush Pro</span></h1>
     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button class="btn btn-warning" id="btnHeaderMergeModal" type="button">🔗 Объединить субтитры</button>
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
@@ -385,7 +385,7 @@
         </div>
       </div>
 
-      <!-- БЛОК ТАЙМАУТА: оптимизирован до 180с от зависаний -->
+      <!-- БЛОК ТАЙМАУТА: 180с против зависаний -->
       <div class="card">
         <h2>⚡ Активные потоки & Таймаут</h2>
         <div class="row" style="align-items:center; margin-bottom:4px;">
@@ -394,7 +394,7 @@
             Авто-таймаут зависания:
           </label>
           <div style="flex:0 0 100px;">
-            <input type="number" id="inputTimeoutSec" min="60" max="600" value="180" style="padding:4px 8px;" title="Оптимально 150-180 сек. Если Google завис, сбросит и перезапустит поток">
+            <input type="number" id="inputTimeoutSec" min="60" max="600" value="180" style="padding:4px 8px;" title="Оптимально 180 сек. Если запрос повис у Google, сбросит и перезапустит поток">
           </div>
           <span style="font-size:0.8rem; color:var(--text-muted); flex:0 auto;">сек</span>
         </div>
@@ -971,19 +971,26 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
+/* ОБНОВЛЕННЫЙ ПРОМПТ С ЖЕСТКИМ ЗАПРЕТОМ ОПЕРЕЖЕНИЯ (ANTI-RUSH) */
 const SYSTEM_PROMPT = `Ты — профессиональный переводчик и субтитровщик видео-реакций.
-Твоя задача: Полный дословный перевод всей звучащей речи на русский язык в формате субтитров ASS.
+Твоя задача: Полный дословный перевод всей звучащей речи на русский язык в формате субтитров ASS с идеальной синхронизацией по звуку.
 
 ДОРОЖКИ (СТИЛИ):
 - Речь стримера (английский микрофон) -> стиль "Streamer"
 - Речь в видео/аниме (японский) -> стиль "Anime" (имена по Поливанову)
 
-ПРАВИЛА ТАЙМИНГА:
-1. ДОСЛОВНЫЙ ПЕРЕВОД: Полный дословный перевод всей звучащей речи без сокращений, пропусков и сжатия смысла.
-2. ФОРМАТ ТАЙМКОДОВ СТРОГО: 0:MM:SS.cs (например: 0:00:15.40, 0:01:25.10, 0:02:40.80).
-3. НЕПРЕРЫВНОСТЬ ВРЕМЕНИ: Таймкоды отсчитываются от начала аудиофайла (0:00:00.00) и должны непрерывно увеличиваться по ходу звучания речи до самого конца аудио. Категорически ЗАПРЕЩЕНО сбрасывать минуты обратно в 0:00:xx при наступлении новой минуты!
-4. ПАУЗЫ И ОПЕНИНГИ: Если персонажи молчат, играет заставка, музыка или тишина — субтитры НЕ должны гореть на экране. Не растягивай субтитры на паузы между фразами.
-5. СТРОГИЙ ФОРМАТ КАЖДОЙ СТРОКИ:
+СТРОЖАЙШИЕ ПРАВИЛА ТАЙМИНГА (ЗАЩИТА ОТ СПЕШКИ):
+1. ЗАПРЕТ ОПЕРЕЖЕНИЯ (ANTI-RUSH):
+   - Таймкод Start ставится СТРОГО в момент, когда в аудио начинает физически звучать первый слог речи.
+   - Категорически ЗАПРЕЩЕНО выводить субтитр раньше времени!
+   - Если в аниме произошло действие, а стример молчит 2-5 секунд и только потом реагирует — субтитр ДОЛЖЕН начинаться ровно в момент, когда стример заговорил, а НЕ в момент события на экране.
+2. СОХРАНЯЙ ПАУЗЫ:
+   - Если между фразами есть пауза или вздох — между строками субтитров ОБЯЗАН быть временной зазор.
+   - Запрещено склеивать конец предыдущей строки с началом следующей (Start следующей строки НЕ должен быть равен End предыдущей, если была пауза).
+3. ТОЧНОСТЬ ЗАТУХАНИЯ:
+   - End ставится строго на затухании последнего слова фразы. Субтитр не должен висеть на экране во время тишины.
+4. ФОРМАТ ТАЙМКОДОВ СТРОГО: 0:MM:SS.cs (например: 0:00:15.40, 0:01:25.10, 0:02:40.80).
+5. ФОРМАТ КАЖДОЙ СТРОКИ:
 Dialogue: 0,Start,End,Style,,0,0,0,,Текст перевода на русском`;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1244,9 +1251,9 @@ function joinBrokenLines(text) {
   return { text: out.join('\n') };
 }
 
+/* ТОЧНЫЙ МАТЕМАТИЧЕСКИЙ СДВИГ */
 function shiftLines(lines, off) {
   const out = [];
-  const parsed = [];
 
   for (let i = 0; i < (lines || []).length; i++) {
     const item = smartParseAssLine(lines[i]);
@@ -1262,39 +1269,13 @@ function shiftLines(lines, off) {
     }
     if (e == null || e <= s) e = s + 2.0;
 
-    parsed.push({ item, s, e });
+    out.push('Dialogue: 0,' + fmtT(s + off) + ',' + fmtT(e + off) + ',' + item.style + ',' + item.name + ',0,0,0,,' + item.text);
   }
-
-  const tracks = { Anime: [], Streamer: [] };
-  parsed.forEach(p => {
-    if (tracks[p.item.style]) tracks[p.item.style].push(p);
-    else tracks.Anime.push(p);
-  });
-
-  ['Anime', 'Streamer'].forEach(styleKey => {
-    const list = tracks[styleKey];
-    let minuteOffset = 0;
-    let lastRawStart = -1;
-
-    for (let i = 0; i < list.length; i++) {
-      const cur = list[i];
-
-      while (lastRawStart >= 0 && (cur.s + minuteOffset) < (lastRawStart - 18)) {
-        minuteOffset += 60;
-      }
-
-      cur.s += minuteOffset;
-      cur.e += minuteOffset;
-      if (cur.e <= cur.s) cur.e = cur.s + 1.5;
-      lastRawStart = cur.s;
-
-      out.push('Dialogue: 0,' + fmtT(cur.s + off) + ',' + fmtT(cur.e + off) + ',' + cur.item.style + ',' + cur.item.name + ',0,0,0,,' + cur.item.text);
-    }
-  });
 
   return out;
 }
 
+/* БЕРЕЖНАЯ СБОРКА: СТРИМЕР И АНИМЕ ЖИВУТ НЕЗАВИСИМО */
 function fixAss(text, opts) {
   const o = Object.assign({ 
     sort: true, 
@@ -1320,11 +1301,11 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('ASS Fixer v10.1'), log: ['строк Dialogue не найдено'] };
+    return { text: assHeader('ASS Fixer v10.2'), log: ['строк Dialogue не найдено'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('ASS Fixer v10.1').replace(/\n+$/, '')
+    ? assHeader('ASS Fixer v10.2').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
@@ -1461,7 +1442,7 @@ function fixAss(text, opts) {
   finalRows.sort((a, b) => a.s - b.s || a.e - b.e);
 
   const ev = finalRows.map(r => `Dialogue: 0,${fmtT(r.s)},${fmtT(r.e)},${r.item.style},${r.item.name},0,0,0,,${r.item.text}`);
-  return assHeader('Объединенные субтитры v10.1') + '\n' + ev.join('\n') + '\n';
+  return assHeader('Объединенные субтитры v10.2') + '\n' + ev.join('\n') + '\n';
 }
 
 function loadSavedStyles() {
@@ -2263,6 +2244,7 @@ function f32ToWavBlob(f32, sr) {
   return new Blob([ab], { type: 'audio/wav' });
 }
 
+/* СТОЙКАЯ ГЕНЕРАЦИЯ: УМНЫЙ RETRY БЕЗ ЗАВИСАНИЙ И БЕЗ СДАЧИ НА 503 */
 async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback, mainSignal) {
   const b64Promise = new Promise(r => {
     const reader = new FileReader();
@@ -2833,7 +2815,7 @@ document.addEventListener('DOMContentLoaded', () => {
             break;
           }
 
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.1 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.2 Pro') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             sort: useSort, 
@@ -2985,7 +2967,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v10.1 Pro Stable готов к работе.');
+  glog('ASS & SRT Fixer v10.2 Anti-Rush Pro готов к работе.');
 });
 </script>
 </body>

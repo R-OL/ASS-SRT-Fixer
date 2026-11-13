@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ASS & SRT Fixer v10.2 Anti-Rush Pro</title>
+<title>ASS & SRT Fixer v10.3 Anti-Rush Pro & Auto-Healing</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -351,7 +351,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v10.2 Anti-Rush Pro</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v10.3 Anti-Rush Pro & Auto-Healing</span></h1>
     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button class="btn btn-warning" id="btnHeaderMergeModal" type="button">🔗 Объединить субтитры</button>
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
@@ -411,10 +411,10 @@
     <div class="card">
       <h2>2 · Настройки генерации & Очередь файлов</h2>
       <div>
-        <label for="gAudioFile">Аудиофайлы (можно выбрать сразу несколько):</label>
+        <label for="gAudioFile">Аудио / Видео файлы (mp3, wav, mp4, mkv, webm и др.):</label>
         <div class="row">
-          <input type="file" id="gAudioFile" accept="audio/*" multiple>
-          <button class="btn btn-warning" id="btnOpenTrimmerModal" type="button" style="flex:0 0 150px;" title="Обрезать нужный отрезок аудио">✂️ Обрезать кусок</button>
+          <input type="file" id="gAudioFile" accept="audio/*,video/*" multiple>
+          <button class="btn btn-warning" id="btnOpenTrimmerModal" type="button" style="flex:0 0 150px;" title="Обрезать нужный отрезок аудио/видео">✂️ Обрезать кусок</button>
         </div>
       </div>
 
@@ -481,8 +481,8 @@
 
       <div class="row">
         <div>
-          <label for="gChunk">Кусок, мин (реком: 4 мин):</label>
-          <input type="number" id="gChunk" min="1" max="10" step="0.5" value="4">
+          <label for="gChunk">Кусок, мин (реком: 2 мин для точности):</label>
+          <input type="number" id="gChunk" min="1" max="10" step="0.5" value="2">
         </div>
         <div>
           <label for="gPar">Потоков (1–2):</label>
@@ -524,7 +524,7 @@
     <!-- БЛОК 3: Ручной фиксер -->
     <div class="card">
       <h2>
-        3 · Ручная починка субтитров
+        3 · Ручная починка субтитров & Auto-Healing
         <div style="display:flex; gap:6px;">
           <button class="btn btn-mini btn-warning" onclick="openMergerModal()" type="button">🔗 Склеить 2 файла</button>
           <button class="btn btn-mini" onclick="openStyleModal()" type="button">🎨 Стили .ass</button>
@@ -605,17 +605,17 @@
   </div>
 </div>
 
-<!-- МОДАЛЬНОЕ ОКНО 1: ОБРЕЗКА АУДИО (TRIMMER) -->
+<!-- МОДАЛЬНОЕ ОКНО 1: ОБРЕЗКА АУДИО / ВИДЕО (TRIMMER) -->
 <div class="modal-overlay" id="trimmerModalOverlay">
   <div class="modal-dialog">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
-      <h2 style="font-size:1.15rem; font-weight:700;">✂️ Удобная обрезка аудиофайла</h2>
+      <h2 style="font-size:1.15rem; font-weight:700;">✂️ Удобная обрезка аудио / видеофайла</h2>
       <button class="btn btn-mini btn-danger" onclick="closeTrimmerModal()" type="button">✕ Закрыть</button>
     </div>
 
     <div>
-      <label for="trimFileInput">Аудиофайл для обрезки:</label>
-      <input type="file" id="trimFileInput" accept="audio/*">
+      <label for="trimFileInput">Аудио или видео файл для обрезки:</label>
+      <input type="file" id="trimFileInput" accept="audio/*,video/*">
       <div id="trimFileInfo" style="font-size:0.8rem; color:var(--accent-primary); margin-top:4px;">Файл не загружен</div>
     </div>
 
@@ -989,7 +989,7 @@ const SYSTEM_PROMPT = `Ты — профессиональный перевод�
    - Запрещено склеивать конец предыдущей строки с началом следующей (Start следующей строки НЕ должен быть равен End предыдущей, если была пауза).
 3. ТОЧНОСТЬ ЗАТУХАНИЯ:
    - End ставится строго на затухании последнего слова фразы. Субтитр не должен висеть на экране во время тишины.
-4. ФОРМАТ ТАЙМКОДОВ СТРОГО: 0:MM:SS.cs (например: 0:00:15.40, 0:01:25.10, 0:02:40.80).
+4. ФОРМАТ ТАЙМКОДОВ СТРОГО: 0:MM:SS.cs (например: 0:00:15.40, 0:01:25.10, 0:09:40.80, 0:10:15.20, 0:21:45.00). Категорически запрещено выводить 1:00 вместо 0:10!
 5. ФОРМАТ КАЖДОЙ СТРОКИ:
 Dialogue: 0,Start,End,Style,,0,0,0,,Текст перевода на русском`;
 
@@ -1133,14 +1133,31 @@ function fmtT(x) {
   return hh + ':' + String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0') + '.' + String(cs).padStart(2, '0');
 }
 
+/* УМНЫЙ ПАРСЕР ТАЙМКОДОВ С ЛЕЧЕНИЕМ 4-ЗНАЧНЫХ И СПАЕННЫХ ОШИБОК МОДЕЛИ */
 function tparse(s) {
   const t = String(s == null ? '' : s).replace(/\s+/g, '');
   if (!t) return null;
 
-  let m = /^(\d{1,2}):(\d{1,2}):(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(t);
-  if (m) return tparse(m[2] + ':' + m[3] + ':' + m[4] + (m[5] ? '.' + m[5] : ''));
+  // 1. АВТО-ЛЕЧЕНИЕ 4-КОЛОННОГО БАГА (0:1:00:12.60 или 0:1:01:06.50)
+  // Когда модель пишет 1 в десяток минут и 00..11 в минуты (10+минут):
+  let m4 = /^(\d{1,2}):(\d{1,2}):(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(t);
+  if (m4) {
+    const g1 = parseInt(m4[1], 10);
+    const g2 = parseInt(m4[2], 10);
+    const g3 = parseInt(m4[3], 10);
+    const g4 = parseFloat(m4[4] + '.' + (m4[5] || '0'));
+    if (g1 === 0 && g2 === 1 && g3 <= 35) {
+      // Это галлюцинация: 0 (часов) : 1 (десяток минут) : MM (минуты) : SS.cs
+      return { v: (10 + g3) * 60 + g4 };
+    }
+    if (g1 === 0 && g2 === 0) {
+      return { v: g3 * 60 + g4 };
+    }
+    return tparse(m4[2] + ':' + m4[3] + ':' + m4[4] + (m4[5] ? '.' + m4[5] : ''));
+  }
 
-  m = /^(\d{1,2}):(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(t);
+  // 2. СТАНДАРТНЫЙ ЧЧ:ММ:СС (1:00:11.30)
+  let m = /^(\d{1,2}):(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(t);
   if (m) {
     const a = parseInt(m[1], 10);
     const b = parseInt(m[2], 10);
@@ -1148,11 +1165,13 @@ function tparse(s) {
     return { v: a * 3600 + b * 60 + c };
   }
 
+  // 3. ММ:СС (10:12.60)
   m = /^(\d{1,3}):(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(t);
   if (m) {
     return { v: parseInt(m[1], 10) * 60 + parseFloat(m[2] + '.' + (m[3] || '0')) };
   }
 
+  // 4. СЕКУНДЫ (75.40)
   m = /^(\d{1,5})(?:[.,](\d{1,3}))?$/.exec(t);
   if (m) {
     return { v: parseFloat(m[1] + '.' + (m[2] || '0')) };
@@ -1161,6 +1180,7 @@ function tparse(s) {
   return null;
 }
 
+/* УМНЫЙ ПАРСЕР СТРОКИ ASS С АВТО-ОЧИСТКОЙ МУСОРНЫХ ЗАГОЛОВКОВ ИЗ ТЕКСТА */
 function smartParseAssLine(rawLine) {
   if (!/^\s*Dialogue\s*:/i.test(rawLine)) return null;
 
@@ -1174,7 +1194,10 @@ function smartParseAssLine(rawLine) {
   const parts = line.split(',').map(s => s.trim());
   if (parts.length < 3) return null;
 
-  const isTime = (str) => /^(\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d+)?$/.test(str) || /^\d+[.,]\d+$/.test(str);
+  const isTime = (str) => {
+    const sClean = str.replace(/\s+/g, '');
+    return /^(\d{1,2}:)?(\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d+)?$/.test(sClean) || /^\d+[.,]\d+$/.test(sClean);
+  };
   const isStyle = (str) => /^(anime|streamer|default)$/i.test(str);
 
   let idx = 0;
@@ -1213,6 +1236,23 @@ function smartParseAssLine(rawLine) {
   }
 
   let text = parts.slice(idx).join(',').trim();
+
+  // АВТО-ОЧИСТКА ОТ ПРИЛИПШИХ ХВОСТОВ ТАЙМКОДОВ И ЗАГОЛОВКОВ ВНУТРИ ТЕКСТА
+  // Например: "0: 1: 00: 12.60, 0, 0, 0,, Капитан!" -> извлекаем 12.60 как end и оставляем "Капитан!"
+  const leakMatch = text.match(/^(?:(?:Dialogue:\s*)?0\s*,\s*)?(?:(\d{1,2}\s*:\s*\d{1,2}(?:\s*:\s*\d{1,2})?(?:\s*:\s*\d{1,2})?[.,]?\d*)\s*,?\s*)+(?:[0-9,\s]*,,?\s*)?(.*)$/i);
+  if (leakMatch) {
+    const embeddedTime = leakMatch[1];
+    const cleanRest = leakMatch[2];
+    if (cleanRest && cleanRest.trim()) {
+      if (!endStr && embeddedTime) {
+        endStr = embeddedTime.replace(/\s+/g, '');
+      }
+      text = cleanRest.trim();
+    }
+  }
+
+  // Очистка остаточных полей и нулей
+  text = text.replace(/^(?:[0-9,\s]+,,)+/g, '').trim();
   text = text.replace(/^(Anime|Streamer)\s*,\s*/i, '');
   if (!text) return null;
 
@@ -1275,7 +1315,7 @@ function shiftLines(lines, off) {
   return out;
 }
 
-/* БЕРЕЖНАЯ СБОРКА: СТРИМЕР И АНИМЕ ЖИВУТ НЕЗАВИСИМО */
+/* БЕРЕЖНАЯ СБОРКА И АВТО-ВОССТАНОВЛЕНИЕ ТАЙМИНГОВ (AUTO-HEALING) */
 function fixAss(text, opts) {
   const o = Object.assign({ 
     sort: true, 
@@ -1301,16 +1341,16 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('ASS Fixer v10.2'), log: ['строк Dialogue не найдено'] };
+    return { text: assHeader('ASS Fixer v10.3'), log: ['строк Dialogue не найдено'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('ASS Fixer v10.2').replace(/\n+$/, '')
+    ? assHeader('ASS Fixer v10.3').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
   const body = jn.text.split('\n');
-  const tracks = { Anime: [], Streamer: [] };
+  const rawRows = [];
 
   for (let i = 0; i < body.length; i++) {
     const ln = body[i];
@@ -1326,12 +1366,39 @@ function fixAss(text, opts) {
     let e = t2 ? t2.v : (s + 2.0);
     if (e <= s) e = s + 1.5;
 
-    if (o.limitMaxDur && (e - s > maxDur)) {
-      e = s + maxDur;
-    }
+    rawRows.push({ item, s, e });
+  }
 
-    const target = tracks[item.style] || tracks.Anime;
-    target.push({ item, s, e });
+  // АВТО-ЛЕЧЕНИЕ ПРЫЖКА С 9 МИНУТ НА 1 ЧАС (1:00:xx -> 0:10:xx)
+  let lastValidTime = 0;
+  for (let i = 0; i < rawRows.length; i++) {
+    const r = rawRows[i];
+    // Если время прыгнуло на 1 час (3600-4500 сек), хотя до этого шло < 900 сек (15 мин)
+    if (r.s >= 3600 && r.s < 5000 && lastValidTime < 1000) {
+      const secInHour = r.s - 3600;
+      const mm = Math.floor(secInHour / 60);
+      const ss = secInHour % 60;
+      // Модель записала 10+ минут как 1:00..1:15
+      if (mm <= 35) {
+        const healedS = (10 + mm) * 60 + ss;
+        const dur = Math.max(1.5, r.e - r.s);
+        r.s = healedS;
+        r.e = healedS + dur;
+      }
+    }
+    if (r.s > lastValidTime && r.s < 3600) {
+      lastValidTime = r.s;
+    }
+  }
+
+  const tracks = { Anime: [], Streamer: [] };
+  for (let i = 0; i < rawRows.length; i++) {
+    const r = rawRows[i];
+    if (o.limitMaxDur && (r.e - r.s > maxDur)) {
+      r.e = r.s + maxDur;
+    }
+    const target = tracks[r.item.style] || tracks.Anime;
+    target.push(r);
   }
 
   const resultRows = [];
@@ -1367,7 +1434,7 @@ function fixAss(text, opts) {
 }
 
 /* ==================== КОНЕЦ ПЕРВОЙ ЧАСТИ ==================== */
-  function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
+function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
   let normBase = String(baseText || '').replace(/\r\n?/g, '\n');
   if (!normBase.includes('Dialogue:') && normBase.includes('-->')) {
     normBase = srtToAss(normBase);
@@ -1442,7 +1509,7 @@ function fixAss(text, opts) {
   finalRows.sort((a, b) => a.s - b.s || a.e - b.e);
 
   const ev = finalRows.map(r => `Dialogue: 0,${fmtT(r.s)},${fmtT(r.e)},${r.item.style},${r.item.name},0,0,0,,${r.item.text}`);
-  return assHeader('Объединенные субтитры v10.2') + '\n' + ev.join('\n') + '\n';
+  return assHeader('Объединенные субтитры v10.3') + '\n' + ev.join('\n') + '\n';
 }
 
 function loadSavedStyles() {
@@ -1597,7 +1664,7 @@ window.closeTrimmerModal = function() {
 async function loadAudioForTrimmer(file) {
   trimmerState.file = file;
   const infoEl = document.getElementById('trimFileInfo');
-  if (infoEl) infoEl.innerText = `Загружаю «${file.name}»...`;
+  if (infoEl) infoEl.innerText = `Загружаю дорожку «${file.name}»...`;
 
   try {
     const ab = await file.arrayBuffer();
@@ -1609,7 +1676,7 @@ async function loadAudioForTrimmer(file) {
     if (infoEl) infoEl.innerText = `Загружен: «${file.name}» (Длина: ${mmss(dur)}, ${Math.round(dur)} сек)`;
     updateTrimmerDuration();
   } catch (e) {
-    if (infoEl) infoEl.innerText = `Ошибка загрузки аудио: ${e.message}`;
+    if (infoEl) infoEl.innerText = `Ошибка извлечения звука: ${e.message}`;
   }
 }
 
@@ -1636,7 +1703,7 @@ window.toggleTrimPlay = function() {
 };
 
 function startTrimmedPreview() {
-  if (!trimmerState.audioBuf) return alert('Сначала выберите аудиофайл!');
+  if (!trimmerState.audioBuf) return alert('Сначала выберите аудио или видеофайл!');
   const s = parseUserTime(document.getElementById('trimStartInput')?.value);
   const e = parseUserTime(document.getElementById('trimEndInput')?.value);
   if (e <= s) return alert('Конец отрезка должен быть больше начала!');
@@ -1707,7 +1774,7 @@ window.downloadTrimmedWav = async function() {
   try {
     const f32 = await renderTrimmedSlice16k(s, e);
     const blob = f32ToWavBlob(f32, 16000);
-    const baseName = (trimmerState.file?.name || 'audio').replace(/\.[^/.]+$/, '');
+    const baseName = (trimmerState.file?.name || 'media').replace(/\.[^/.]+$/, '');
     const filename = `${baseName}_cut_${mmss(s)}-${mmss(e)}.wav`;
 
     const url = URL.createObjectURL(blob);
@@ -1733,7 +1800,7 @@ window.sendTrimmedToQueue = async function() {
   try {
     const f32 = await renderTrimmedSlice16k(s, e);
     const blob = f32ToWavBlob(f32, 16000);
-    const baseName = (trimmerState.file?.name || 'audio').replace(/\.[^/.]+$/, '');
+    const baseName = (trimmerState.file?.name || 'media').replace(/\.[^/.]+$/, '');
     const customName = `${baseName}_кусок_${mmss(s)}`;
 
     const file = new File([blob], `${customName}.wav`, { type: 'audio/wav' });
@@ -2106,7 +2173,7 @@ async function fetchAvailableModels() {
 }
 
 function planCleanChunks(f32, sr, minMinutes) {
-  const targetSec = Math.max(60, Math.min(600, (Number(minMinutes) || 4) * 60));
+  const targetSec = Math.max(60, Math.min(600, (Number(minMinutes) || 2) * 60));
   const totalSec = f32.length / sr;
   const plan = [];
   let cur = 0;
@@ -2145,7 +2212,7 @@ function planCleanChunks(f32, sr, minMinutes) {
 }
 
 async function decodeAudioAndResample16k(file, chunkMinutes) {
-  glog(`Декодирую аудио «${file.name}»...`);
+  glog(`Извлекаю звук из «${file.name}»...`);
   let ab = await file.arrayBuffer();
   const ac = new (window.AudioContext || window.webkitAudioContext)();
   
@@ -2161,7 +2228,7 @@ async function decodeAudioAndResample16k(file, chunkMinutes) {
   const length = audioBuf.length;
   const srcSampleRate = audioBuf.sampleRate;
 
-  glog(`Длина аудио: ${mmss(dur)} (${Math.round(dur)}с). Ресемплинг 16 кГц...`);
+  glog(`Длина дорожки: ${mmss(dur)} (${Math.round(dur)}с). Ресемплинг 16 кГц...`);
 
   let monoF32 = new Float32Array(length);
   for (let ch = 0; ch < numChannels; ch++) {
@@ -2671,10 +2738,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.innerHTML = '';
   });
 
-  // ЗАПУСК ГЕНЕРАЦИИ С ЗАЩИТОЙ ОТ ПЕРЕХОДА НА СЛЕДУЮЩУЮ СЕРИЮ ПРИ ОШИБКЕ
+  // ЗАПУСК ГЕНЕРАЦИИ С ЗАЩИТОЙ И АВТО-ЛЕЧЕНИЕМ
   document.getElementById('btnStartGen')?.addEventListener('click', async () => {
     if (!S.keys.length) return alert('Сначала добавьте хотя бы один ключ в блоке 1!');
-    if (!S.batchQueue.length) return alert('Выберите аудиофайл(ы) в блоке 2!');
+    if (!S.batchQueue.length) return alert('Выберите аудио или видеофайл(ы) в блоке 2!');
 
     if (globalSaveDirHandle) {
       try {
@@ -2685,7 +2752,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {}
     }
 
-    const chunkMin = Math.max(1, Math.min(10, parseFloat(document.getElementById('gChunk')?.value) || 4));
+    const chunkMin = Math.max(1, Math.min(10, parseFloat(document.getElementById('gChunk')?.value) || 2));
     const par = parseInt(document.getElementById('gPar')?.value, 10) || 2;
     const model = document.getElementById('gModelSelect')?.value || 'gemini-flash-latest';
     const think = document.getElementById('gThink')?.value || '';
@@ -2726,7 +2793,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const baseTimeOffset = Number(file.customTimeOffset) || 0;
         glog(`=== Очередь [${qIdx + 1}/${S.batchQueue.length}]: «${file.name}» ${baseTimeOffset > 0 ? '(Сдвиг отрезка: +' + mmss(baseTimeOffset) + ')' : ''} ===`);
-        setStatus(`[${qIdx + 1}/${S.batchQueue.length}] Нарезка аудио...`);
+        setStatus(`[${qIdx + 1}/${S.batchQueue.length}] Извлечение и нарезка...`);
 
         const chunks = await decodeAudioAndResample16k(file, chunkMin);
         const results = new Array(chunks.length);
@@ -2782,7 +2849,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < Math.min(par, chunks.length); i++) pool.push(worker());
         await Promise.all(pool);
 
-        // АВТО-ПОВТОР ДЛЯ СОРВАВШИХСЯ КУСКОВ (НЕ БРОСАЕМ СЕРИЮ!)
+        // АВТО-ПОВТОР ДЛЯ СОРВАВШИХСЯ КУСКОВ
         let retryRound = 0;
         while (!abortController.signal.aborted && retryRound < 3) {
           const failedIndices = [];
@@ -2808,14 +2875,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!results[i]) missingChunks.push(i + 1);
           }
 
-          // ЕСЛИ КУСОК ТАК И НЕ ДОБИТ — ОСТАНАВЛИВАЕМ ОЧЕРЕДЬ, ЧТОБЫ НЕ ПОРТИТЬ СЛЕДУЮЩИЕ СЕРИИ
           if (missingChunks.length > 0) {
             glog(`❌ ОЧЕРЕДЬ ПРИОСТАНОВЛЕНА: Кусок #${missingChunks.join(', #')} не ответил из-за перегрузки Google. Запустите серию снова (готовые куски подтянутся из кэша мгновенно)!`, 'err');
             alert(`Внимание! Не удалось расшифровать кусок #${missingChunks.join(', #')} из-за перегрузки Google.\n\nОчередь остановлена, чтобы не портить файл. Нажмите "Старт" ещё раз — готовые куски возьмутся из кэша за 1 секунду, и программа добьет только этот кусок!`);
             break;
           }
 
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.2 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.3 Pro') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             sort: useSort, 
@@ -2832,7 +2898,7 @@ document.addEventListener('DOMContentLoaded', () => {
           S.genResult = fr.text;
           showNumbered(document.getElementById('gOut'), S.genResult);
 
-          glog(`— [${qIdx + 1}/${S.batchQueue.length}] Сборка завершена: ${fr.log[0] || 'готово'}`);
+          glog(`— [${qIdx + 1}/${S.batchQueue.length}] Сборка и авто-лечение завершены: ${fr.log[0] || 'готово'}`);
 
           document.getElementById('btnDlGen').disabled = false;
           document.getElementById('btnDlGenSrt').disabled = false;
@@ -2944,7 +3010,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     S.fixResult = fr.text;
     showNumbered(document.getElementById('fxOut'), fr.text);
-    glog('— Фиксер: ' + fr.log.join(', '));
+    glog('— Фиксер & Auto-Healing: ' + fr.log.join(', '));
 
     document.getElementById('btnDlFixedSrt').disabled = false;
     document.getElementById('btnDlFixed').disabled = false;
@@ -2967,7 +3033,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v10.2 Anti-Rush Pro готов к работе.');
+  glog('ASS & SRT Fixer v10.3 Anti-Rush Pro & Auto-Healing готов к работе.');
 });
 </script>
 </body>

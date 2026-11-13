@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0b0e14">
-<title>ASS & SRT Fixer v10.4 Anti-Rush Pro</title>
+<title>ASS & SRT Fixer v10.5 Anti-Rush Pro</title>
 <style>
   :root {
     --bg-base: #0b0e14;
@@ -348,7 +348,7 @@
 
 <div id="mainAppContent" style="display: none;">
   <header>
-    <h1>ASS & SRT Fixer <span class="badge">v10.4 Anti-Rush Pro</span></h1>
+    <h1>ASS & SRT Fixer <span class="badge">v10.5 Anti-Rush Pro</span></h1>
     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button class="btn btn-warning" id="btnHeaderMergeModal" type="button">🔗 Объединить субтитры</button>
       <button class="btn btn-pri" id="btnOpenStyleModal" type="button">🎨 Стили для .ass</button>
@@ -845,7 +845,7 @@ function parseUserTime(str) {
 
 function calcSmartDuration(text) {
   const len = String(text || '').replace(/\s+/g, '').length;
-  return Math.max(1.8, Math.min(8.0, len * 0.08 + 0.6));
+  return Math.max(1.5, Math.min(8.0, len * 0.08 + 0.5));
 }
 
 function assToSrt(assText) {
@@ -949,25 +949,37 @@ function assHeader(tag) {
     + 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 }
 
-const SYSTEM_PROMPT = `Ты — профессиональный переводчик и субтитровщик.
-Твоя задача: Полный дословный перевод всей звучащей речи на русский язык в формате субтитров ASS с идеальной синхронизацией по звуку.
+/* СИСТЕМНЫЙ ПРОМПТ v10.5 (ПАРАЛЛЕЛЬНЫЕ ДОРОЖКИ + 1 ФРАЗА = 1 ТАЙМИНГ + БЕЗ ПРОПУСКОВ) */
+const SYSTEM_PROMPT = `Ты — синхронный стенографист живых видео-реакций.
+Твоя задача: Зафиксировать и перевести 100% звучащей речи на русский язык в формате субтитров ASS. Ни одно слово не должно быть пропущено.
 
 ДОРОЖКИ:
-- Если есть речь стримера (английский микрофон) -> стиль "Streamer"
+- Речь стримера (английский микрофон) -> стиль "Streamer"
 - Речь в видео/аниме (японский) -> стиль "Anime" (имена по Поливанову)
 
-СТРОЖАЙШИЕ ПРАВИЛА ТАЙМИНГА:
-1. ЗАПРЕТ ОПЕРЕЖЕНИЯ (ANTI-RUSH):
-   - Таймкод Start ставится СТРОГО в момент, когда в аудио начинает звучать первый слог речи.
-   - Категорически ЗАПРЕЩЕНО выводить субтитр раньше времени!
-2. ОБЯЗАТЕЛЬНО УКАЗЫВАЙ РАЗНЫЕ START И END:
-   - End ставится строго на затухании последнего слова фразы.
-   - Категорически ЗАПРЕЩЕНО опускать End или делать End равным Start!
-   - Длительность реплики (End минус Start) должна соответствовать длине фразы (обычно 1.5–5 секунд).
-3. ПАУЗЫ: Между репликами с паузами обязан быть временной зазор. Не склеивай строки встык!
-4. ФОРМАТ ТАЙМКОДОВ СТРОГО: 0:MM:SS.cs (например: 0:00:15.40, 0:01:25.10).
-5. ФОРМАТ КАЖДОЙ СТРОКИ:
-Dialogue: 0,Start,End,Style,,0,0,0,,Текст перевода на русском`;
+ЖЕЛЕЗНОЕ ПРАВИЛО: ОДНА ФРАЗА = ОДИН ТАЙМИНГ
+1. КАЖДАЯ РЕПЛИКА ИМЕЕТ СВОЙ ТАЙМКОД:
+   - Каждое отдельное предложение, восклицание или выкрик стримера ОБЯЗАНЫ идти отдельной строкой Dialogue со своим собственным временем Start и End!
+   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО склеивать разные фразы в один длинный тайминг!
+   - Стример сказал: "Wait!" (0.4с) -> отдельная строка Dialogue.
+   - Стример следом сказал: "No way!" (0.5с) -> СЛЕДУЮЩАЯ отдельная строка Dialogue.
+2. ПЕРЕНОС СТРОКИ (\\N) — ТОЛЬКО ДЛЯ ОДНОЙ ДЛИННОЙ ФРАЗЫ:
+   - Символ \\N разрешено использовать ТОЛЬКО внутри одного длинного предложения, если оно физически не помещается на экране. Запрещено объединять разные фразы через \\N.
+
+ПАРАЛЛЕЛЬНАЯ РЕЧЬ (ГОЛОСА ПОВЕРХ ДРУГ ДРУГА):
+- В реакциях стример постоянно говорит ПОВЕРХ звуков аниме.
+- ЕСЛИ СТРИМЕР И ПЕРСОНАЖ АНИМЕ ГОВОРЯТ ОДНОВРЕМЕННО: выдавай ДВЕ параллельные строки с пересекающимися таймкодами (одна строка Streamer, вторая Anime).
+- КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО удалять речь стримера или аниме из-за того, что они звучат в одну секунду!
+
+ПОЛНОТА И ЧУВСТВИТЕЛЬНОСТЬ К СЛОВАМ (НИКАКИХ ПРОПУСКОВ):
+- Переводи абсолютно всё: шепот, бубнеж под нос, короткие реакции, повторы слов, эмоциональные выкрики и ругательства.
+- Не пытайся фильтровать «неважные» слова. Если звук голоса есть на дорожке — строка Dialogue ОБЯЗАНА появиться.
+
+СИНХРОНИЗАЦИЯ:
+- Start: строго момент начала звучания конкретной фразы.
+- End: строго момент окончания звучания конкретной фразы.
+- Формат строки: Dialogue: 0,Start,End,Style,,0,0,0,,Текст
+(Таймкоды: H:MM:SS.cs с сотыми долями секунды).`;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -1043,7 +1055,7 @@ window.restartChunkManually = function(chunkNum) {
 };
 
 /* ================= КОНЕЦ ЧАСТИ 1. НАПИШИТЕ "ДАЛЬШЕ" ДЛЯ ПОЛУЧЕНИЯ ЧАСТИ 2 ================= */
-async function startKeepAlive() {
+  async function startKeepAlive() {
   const allow = document.getElementById('gKeepAlive')?.checked;
   if (!allow) return;
 
@@ -1093,7 +1105,36 @@ function escapeHtml(t) {
   return div.innerHTML;
 }
 
-function dayKey() { return new Date().toISOString().slice(0, 10); }
+function dayKey() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// АВТО-СБРОС СЧЕТЧИКА ЗАПРОСОВ ПРИ НАСТУПЛЕНИИ НОВОГО ДНЯ
+function checkAndResetDailyStats() {
+  const today = dayKey();
+  let changed = false;
+  if (!S.keys || !S.stats) return;
+
+  for (const k of S.keys) {
+    if (!S.stats[k]) {
+      S.stats[k] = { day: today, n: 0, dead: false };
+      changed = true;
+    } else if (S.stats[k].day !== today) {
+      S.stats[k].day = today;
+      S.stats[k].n = 0;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveKeys();
+    glog('Счетчик запросов на ключах сброшен на новый день.');
+  }
+}
 
 function mmss(sec) {
   sec = Math.round(sec || 0);
@@ -1151,6 +1192,7 @@ function smartParseAssLine(rawLine) {
   if (!/^\s*Dialogue\s*:/i.test(rawLine)) return null;
 
   let line = rawLine.replace(/^\s*Dialogue\s*:\s*/i, '').trim();
+  const rawOriginal = line;
 
   // 1. Исправляем глюк Gemini с тремя двоеточиями: 0:1:00:12.60 -> 0:10:12.60, 0:1:11:59 -> 0:21:59
   line = line.replace(/\b0:1:0(\d:\d{2}(?:[.,]\d+)?)\b/g, '0:1$1');
@@ -1160,6 +1202,8 @@ function smartParseAssLine(rawLine) {
   // 2. Исправляем глюк Gemini, когда десятки минут кодируются как часы (1:00:11 -> 0:10:11, 1:06 -> 0:16, 1:11 -> 0:21)
   line = line.replace(/\b1:0(\d:\d{2}(?:[.,]\d+)?)\b/g, '0:1$1');
   line = line.replace(/\b1:1(\d:\d{2}(?:[.,]\d+)?)\b/g, '0:2$1');
+
+  const hadGlitch = rawOriginal !== line;
 
   line = line.replace(/(\b\d{1,2}:\d{2}(?::\d{2})?),(\d{1,3})\b/g, '$1.$2');
 
@@ -1221,7 +1265,8 @@ function smartParseAssLine(rawLine) {
     endStr,
     style,
     name,
-    text
+    text,
+    hadGlitch
   };
 }
 
@@ -1278,6 +1323,7 @@ function shiftLines(lines, off) {
   return out;
 }
 
+// ФИКСЕР С ПОДРОБНЫМ ЖУРНАЛИРОВАНИЕМ ДЕЙСТВИЙ
 function fixAss(text, opts) {
   const o = Object.assign({ 
     sort: true, 
@@ -1304,16 +1350,18 @@ function fixAss(text, opts) {
   const hasHeader = /\[Script Info\]/i.test(norm);
 
   if (d0 < 0) {
-    return { text: assHeader('ASS Fixer v10.4'), log: ['строк Dialogue не найдено'] };
+    return { text: assHeader('ASS Fixer v10.5'), log: ['строк Dialogue не найдено'] };
   }
 
   let head = (o.applyCustomStyles || !hasHeader) 
-    ? assHeader('ASS Fixer v10.4').replace(/\n+$/, '')
+    ? assHeader('ASS Fixer v10.5').replace(/\n+$/, '')
     : src.slice(0, d0).join('\n').replace(/\n+$/, '');
 
   const jn = joinBrokenLines(src.slice(d0).join('\n'));
   const body = jn.text.split('\n');
   const parsedRows = [];
+  const fixLogs = [];
+  let fixCount = 0;
 
   for (let i = 0; i < body.length; i++) {
     const ln = body[i];
@@ -1321,21 +1369,43 @@ function fixAss(text, opts) {
     const item = smartParseAssLine(ln);
     if (!item) continue;
 
+    if (item.hadGlitch) {
+      fixLogs.push(`[Строка ${i + 1}] Исправлен формат таймкода Gemini (${item.startStr} / ${item.endStr || 'нет'})`);
+      fixCount++;
+    }
+
     const t1 = tparse(item.startStr);
     const t2 = tparse(item.endStr);
     if (!t1) continue;
 
     let s = t1.v;
-    let e = t2 ? t2.v : (s + calcSmartDuration(item.text));
-    if (e <= s) e = s + calcSmartDuration(item.text);
+    let e = null;
+    let eWasFixed = false;
 
-    if (o.limitMaxDur && (e - s > maxDur)) {
-      e = s + maxDur;
+    if (t2 && t2.v > s) {
+      e = t2.v;
+    } else {
+      const addedDur = calcSmartDuration(item.text);
+      e = s + addedDur;
+      eWasFixed = true;
     }
 
-    parsedRows.push({ item, s, e });
+    if (eWasFixed) {
+      fixLogs.push(`[Строка ${i + 1}] Восстановлен End для «${item.text.slice(0, 26)}...» (${fmtT(s)} -> ${fmtT(e)})`);
+      fixCount++;
+    }
+
+    if (o.limitMaxDur && (e - s > maxDur)) {
+      const origDur = e - s;
+      e = s + maxDur;
+      fixLogs.push(`[Строка ${i + 1}] Длительность ограничена с ${origDur.toFixed(1)}с до ${maxDur}с («${item.text.slice(0, 20)}...»)`);
+      fixCount++;
+    }
+
+    parsedRows.push({ item, s, e, lineNum: i + 1 });
   }
 
+  // АВТО-УСТРАНЕНИЕ СКАЧКОВ ВРЕМЕНИ (> 25 МИНУТ)
   if (o.fixJumps && parsedRows.length > 1) {
     for (let i = 1; i < parsedRows.length; i++) {
       const prev = parsedRows[i - 1];
@@ -1345,7 +1415,8 @@ function fixAss(text, opts) {
         const excessMinutes = Math.round(diff / 60);
         const jumpCorrection = Math.floor(diff / 600) * 600;
         if (jumpCorrection >= 1500) {
-          glog(`Срезаю аномальный скачок времени (+${excessMinutes} мин)...`, 'warn');
+          fixLogs.push(`[Строка ${cur.lineNum}] Срезан аномальный скачок времени на +${excessMinutes} мин (${fmtT(cur.s)} -> ${fmtT(cur.s - jumpCorrection)})`);
+          fixCount++;
           for (let j = i; j < parsedRows.length; j++) {
             parsedRows[j].s -= jumpCorrection;
             parsedRows[j].e -= jumpCorrection;
@@ -1371,6 +1442,8 @@ function fixAss(text, opts) {
       for (let i = list.length - 1; i > 0; i--) {
         const cur = list[i], prev = list[i - 1];
         if (Math.abs(cur.s - prev.s) < 1.2 && cur.item.text === prev.item.text) {
+          fixLogs.push(`[Дубль] Удалена повторная строка: «${cur.item.text.slice(0, 30)}...» на ${fmtT(cur.s)}`);
+          fixCount++;
           list.splice(i, 1);
         }
       }
@@ -1389,8 +1462,12 @@ function fixAss(text, opts) {
     ev.push('Dialogue: 0,' + fmtT(r.s) + ',' + fmtT(r.e) + ',' + r.item.style + ',' + r.item.name + ',0,0,0,,' + r.item.text);
   }
 
+  // ВЫВОД ВСЕХ ИСПРАВЛЕНИЙ В ЖУРНАЛ
+  fixLogs.forEach(msg => glog(msg, msg.includes('Срезан') || msg.includes('Дубль') ? 'warn' : 'info'));
+  glog(`Фиксер завершил работу: обработано строк ${resultRows.length}, исправлено проблем: ${fixCount}`);
+
   const outText = head + '\n' + ev.join('\n') + '\n';
-  return { text: outText, log: ['строк: ' + resultRows.length] };
+  return { text: outText, log: [`строк: ${resultRows.length}, исправлений: ${fixCount}`] };
 }
 
 function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
@@ -1468,7 +1545,7 @@ function smartMergeSubtitles(baseText, insertText, offsetSec = 0) {
   finalRows.sort((a, b) => a.s - b.s || a.e - b.e);
 
   const ev = finalRows.map(r => `Dialogue: 0,${fmtT(r.s)},${fmtT(r.e)},${r.item.style},${r.item.name},0,0,0,,${r.item.text}`);
-  return assHeader('Объединенные субтитры v10.4') + '\n' + ev.join('\n') + '\n';
+  return assHeader('Объединенные субтитры v10.5') + '\n' + ev.join('\n') + '\n';
 }
 
 function loadSavedStyles() {
@@ -1635,7 +1712,7 @@ async function loadAudioForTrimmer(file) {
     if (infoEl) infoEl.innerText = `Загружен: «${file.name}» (${mmss(dur)}, ${Math.round(dur)}с)`;
     updateTrimmerDuration();
   } catch (e) {
-    if (infoEl) infoEl.innerText = `Ошибка загрузки аудио: ${e.message}`;
+    if (infoEl) infoEl.innerText = `Ошибка загрузки медиа: ${e.message}`;
   }
 }
 
@@ -1942,6 +2019,9 @@ function saveKeys() {
 function renderKeys() {
   const list = document.getElementById('keysList');
   if (!list) return;
+
+  checkAndResetDailyStats();
+
   list.innerHTML = '';
   let totalDaily = 0;
   const dk = dayKey();
@@ -1959,7 +2039,7 @@ function renderKeys() {
     const st = S.stats[k] || { day: dk, n: 0, dead: false };
     if (st.day === dk) totalDaily += st.n;
     const masked = k.slice(0, 8) + '…' + k.slice(-4);
-    const icon = st.dead ? '⛔ dead' : (st.daily ? '🔴 limit' : (st.n > 0 ? '🟢 ' + st.n : '⚪ 0'));
+    const icon = st.dead ? '⛔ dead' : (st.n > 0 ? '🟢 ' + st.n : '⚪ 0');
 
     const div = document.createElement('div');
     div.className = 'key-item';
@@ -1995,6 +2075,7 @@ function addKeys(rawInput) {
 
   let added = 0;
   let dupes = 0;
+  const today = dayKey();
 
   tokens.forEach(tok => {
     if (tok.length >= 25) {
@@ -2002,7 +2083,7 @@ function addKeys(rawInput) {
         dupes++;
       } else {
         S.keys.push(tok);
-        S.stats[tok] = { day: dayKey(), n: 0, dead: false };
+        S.stats[tok] = { day: today, n: 0, dead: false };
         added++;
       }
     }
@@ -2028,8 +2109,9 @@ window.handleAddKeyClick = function() {
 };
 
 function acquireKey() {
+  checkAndResetDailyStats();
   const now = Date.now();
-  const aliveKeys = S.keys.filter(k => !(S.stats[k] && (S.stats[k].dead || S.stats[k].daily)));
+  const aliveKeys = S.keys.filter(k => !(S.stats[k] && S.stats[k].dead));
   if (!aliveKeys.length) return Promise.resolve(null);
 
   for (let offset = 0; offset < aliveKeys.length; offset++) {
@@ -2343,7 +2425,7 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents: [{
           parts: [
-            { text: "Создай русские субтитры ASS для этого аудио с точными таймингами:" },
+            { text: "Создай русские субтитры ASS для этого видео/аудио с точными таймингами:" },
             { inline_data: { mime_type: 'audio/wav', data: b64Audio } }
           ]
         }],
@@ -2381,7 +2463,13 @@ async function transcribeChunkResilient(chunk, chosenModel, think, allowFallback
         }
 
         const j = await res.json();
-        S.stats[keyObj.key].n = (S.stats[keyObj.key].n || 0) + 1;
+        
+        // ОБНОВЛЕНИЕ ДНЕВНОГО СЧЕТЧИКА ЗАПРОСА
+        const today = dayKey();
+        if (!S.stats[keyObj.key] || S.stats[keyObj.key].day !== today) {
+          S.stats[keyObj.key] = { day: today, n: 0, dead: false };
+        }
+        S.stats[keyObj.key].n++;
         saveKeys();
         releaseKey(keyObj.key);
 
@@ -2552,6 +2640,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedStats) S.stats = JSON.parse(savedStats) || {};
   } catch (e) {}
 
+  checkAndResetDailyStats();
   renderKeys();
   handleFormatChange();
 
@@ -2674,9 +2763,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btnResetStats')?.addEventListener('click', () => {
-    Object.keys(S.stats).forEach(k => S.stats[k].n = 0);
+    const today = dayKey();
+    Object.keys(S.stats).forEach(k => {
+      S.stats[k].day = today;
+      S.stats[k].n = 0;
+    });
     saveKeys();
-    glog('Счетчики дневных запросов сброшены.');
+    glog('Счетчики дневных запросов сброшены вручную.');
   });
 
   document.getElementById('btnRefreshModels')?.addEventListener('click', fetchAvailableModels);
@@ -2834,7 +2927,7 @@ document.addEventListener('DOMContentLoaded', () => {
             break;
           }
 
-          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.4 Pro') + '\n' + results.filter(Boolean).join('\n');
+          const fullRaw = assHeader('Сгенерировано ASS Fixer v10.5 Pro') + '\n' + results.filter(Boolean).join('\n');
           
           const fr = fixAss(fullRaw, { 
             sort: useSort, 
@@ -2965,7 +3058,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     S.fixResult = fr.text;
     showNumbered(document.getElementById('fxOut'), fr.text);
-    glog('— Фиксер: ' + fr.log.join(', '));
+    glog('— Результат починки: ' + fr.log.join(', '));
 
     document.getElementById('btnDlFixedSrt').disabled = false;
     document.getElementById('btnDlFixed').disabled = false;
@@ -2988,7 +3081,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.clipboard.writeText(S.fixResult).then(() => glog('Починенный текст скопирован в буфер!'));
   });
 
-  glog('ASS & SRT Fixer v10.4 Anti-Rush Pro готов к работе.');
+  glog('ASS & SRT Fixer v10.5 Anti-Rush Pro готов к работе.');
 });
 </script>
 </body>
